@@ -1,5 +1,5 @@
 # Overview
-**⭐️ This repo builds from the basics of LangGraph to complex long term memory concepts and finally to deep agents.**
+**⭐️ This repo builds from the basics of LangGraph to complex long term memory concepts and deep agents.**
 - `langgraph` contains fundamental concepts of langgraph graphs including ST memory, interrupts & streaming
 - `long-term-memory` contains implementations of LT memory for self-improvement
 - `deep-agent` contains my implementation of a deep agent capable of running autonomously for 30+ minutes, with it's own folder path and self-improvement mechanisms (this is the cool bit!)
