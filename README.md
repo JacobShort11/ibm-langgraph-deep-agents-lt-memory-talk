@@ -8,6 +8,8 @@
 ## 🤖 What Are Deep Agents?
 - Deep agents (think Claude Code, Deep Research, Manus) use planning tools, have their own file system and can spawn sub-agents to work on long time-horizon tasks...
 - Ever wondered how Deep Research agents can execute 100's of tool calls without getting lost along the way whilst simple ReACT agents get lost of 7-8 steps? Deep agent harnesses are how!
+- Deep agents are SOTA on AGI benchmarks
+  
 
 ## 🧠 What is Long Term Memory?
 
