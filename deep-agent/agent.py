@@ -370,25 +370,3 @@ def create_research_agent():
 
 # Agent instance for LangGraph Studio
 agent = create_research_agent()
-
-
-# =============================================================================
-# CLI TEST
-# =============================================================================
-
-if __name__ == "__main__":
-    import uuid
-    
-    thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
-    
-    print("Deep Research Agent")
-    print(f"Thread: {thread_id[:8]}...")
-    
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": "What are the latest AI agent trends?"}]},
-        config=config
-    )
-    
-    print("\nResponse:")
-    print(result["messages"][-1].content)

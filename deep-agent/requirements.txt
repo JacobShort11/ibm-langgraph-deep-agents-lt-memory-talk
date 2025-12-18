@@ -1,0 +1,25 @@
+# Deep Agents Framework
+deepagents>=0.1.0
+
+# LangGraph and LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-anthropic>=0.2.0
+langchain-openai>=0.2.0
+
+# Database (for persistent memory)
+psycopg2-binary>=2.9.0
+langgraph-checkpoint-postgres>=0.1.0
+
+# Web Search
+tavily-python>=0.4.0
+
+# Code Execution Sandbox
+daytona-sdk>=0.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+
+# For Jupyter notebook
+jupyter>=1.0.0
+ipykernel>=6.0.0
