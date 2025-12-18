@@ -14,6 +14,7 @@ A research agent built with LangGraph's Deep Agents framework. Orchestrates spec
 - **File System** - Organized workspace for research outputs
 
 ## Quick Start
+- Create a Python 3.12 virtual environment
 
 ### 1. Install
 

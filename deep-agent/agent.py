@@ -21,6 +21,7 @@ from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
+from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware
 
 from prompts.main_agent import PROMPT as MAIN_AGENT_SYSTEM_PROMPT
 from prompts.analysis_agent import PROMPT as ANALYSIS_AGENT_SYSTEM_PROMPT
@@ -124,6 +125,18 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
 # SUB-AGENT CONFIGURATIONS
 # =============================================================================
 
+sub_agent_llm = ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3)
+
+common_middleware = [
+    SummarizationMiddleware(
+        model=sub_agent_llm,
+        max_tokens_before_summary=120000,
+        messages_to_keep=20,
+    ),
+    ToolCallLimitMiddleware(run_limit=15),
+]
+
+
 subagents = [
     {
         "name": "analysis-agent",
@@ -132,14 +145,18 @@ statistical analysis, and trend identification. Use when you need charts,
 graphs, calculations, or any code-based analysis.""",
         "system_prompt": ANALYSIS_AGENT_SYSTEM_PROMPT,
         "tools": [execute_python_code],
+        "middleware": common_middleware,
+        "model": sub_agent_llm
     },
     {
         "name": "web-research-agent",
         "description": """Web research specialist for searching the internet, gathering information,
 finding sources, and collecting raw data on topics. Use for initial
-research and fact-finding.""",
+research and fact-finding. Always call with ONE focused research topic. For multiple topics, call multiple times in parallel""",
         "system_prompt": WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
         "tools": [web_search],
+        "middleware": common_middleware,
+        "model": sub_agent_llm
     },
     {
         "name": "credibility-agent",
@@ -148,10 +165,10 @@ check source reliability, validate claims, and ensure findings are
 trustworthy and defensible. ALWAYS use before finalizing reports.""",
         "system_prompt": CREDIBILITY_AGENT_SYSTEM_PROMPT,
         "tools": [web_search],
-    },
+        "middleware": common_middleware,
+        "model": sub_agent_llm
+    }
 ]
-
-
 
 # =============================================================================
 # BACKEND (Ephemeral + Persistent Memory)
@@ -169,6 +186,8 @@ def make_backend(runtime):
 # CREATE AGENT
 # =============================================================================
 
+agent_llm = ChatOpenAI(model="gpt-5-2025-08-07", max_retries=3)
+
 def create_research_agent():
     """Create the deep research agent."""
     return create_deep_agent(
@@ -178,7 +197,8 @@ def create_research_agent():
         store=store,
         checkpointer=checkpointer,
         backend=make_backend,
-    )
+        model=agent_llm
+    ).with_config({"recursion_limit": 1000})
 
 
 # Agent instance for LangGraph Studio
