@@ -1,4 +1,30 @@
+# Environment
 .env
 .venv
+
+# LangGraph
 .langgraph_api
+
+# Python
 __pycache__
+*.py[cod]
+*$py.class
+*.so
+
+# Testing & Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

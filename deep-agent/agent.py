@@ -21,7 +21,7 @@ from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
-from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware, BaseMiddleware
+from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware, AgentMiddleware
 from langchain.agents import create_agent
 from deepagents import CompiledSubAgent
 from langchain_openai import ChatOpenAI
@@ -233,7 +233,7 @@ def make_backend(runtime):
 # MEMORY MANAGEMENT MIDDLEWARE
 # =============================================================================
 
-class MemoryCleanupMiddleware(BaseMiddleware):
+class MemoryCleanupMiddleware(AgentMiddleware):
     """Automatically keep only the N most recent memory items after each agent run."""
 
     def __init__(self, max_items: int = 100):

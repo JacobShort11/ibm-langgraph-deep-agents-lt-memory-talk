@@ -67,10 +67,11 @@ TO DO (INSERT IMAGE)
 
 ### Built-in Tools (from LangGraph Deep Agents framework)
 
-- `write_todos`, `read_todos` - Planning and task management
+- `write_todos` - Planning and task management.
 - `ls`, `glob`, `grep` - File system navigation
 - `read_file`, `write_file`, `edit_file` - File operations
 - `task` - Spawn sub-agents
+Note: there is no `read_todos` tool. Instead LangGraph Deep Agents' assumes that we will not overflow context losing this (this is a slight oversight in the framework). Instead `write_todos` is there just to encourage the agent to follow the planning behaviour. If needed, we could build a `read_todos` tool to retrieve from state incase of loss in future.
 
 ### Custom Tools
 
@@ -87,6 +88,7 @@ Long-Term Memory files:
 - `/memories/website_quality.txt` - Source ratings
 - `/memories/research_lessons.txt` - What works
 - `/memories/source_notes.txt` - Source notes
+In this project, memories are being searched for by `glob`, `grep` instead of retrieved semantically although we could easily create a `semantic_search` tool / middleware if needed.
 
 ### Context Compaction
 
