@@ -20,7 +20,7 @@ A research agent built with LangGraph's Deep Agents framework. Orchestrates spec
 
 ```bash
 cd deep-agent
-pip install -r requirements.txt
+pip install -r ../requirements.txt
 ```
 
 ### 2. Configure
@@ -59,7 +59,6 @@ deep_research_agent/
 ├── langgraph.json           # LangGraph Studio configuration
 ├── memory_management.ipynb  # Notebook for artificial memory management
 ├── README.md                # This file
-└── requirements.txt         # Python dependencies
 ```
 
 ## Architecture

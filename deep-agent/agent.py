@@ -21,7 +21,10 @@ from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
-from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware
+from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware, BaseMiddleware
+from langchain.agents import create_agent
+from deepagents import CompiledSubAgent
+from langchain_openai import ChatOpenAI
 
 from prompts.main_agent import PROMPT as MAIN_AGENT_SYSTEM_PROMPT
 from prompts.analysis_agent import PROMPT as ANALYSIS_AGENT_SYSTEM_PROMPT
@@ -127,48 +130,92 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
 
 sub_agent_llm = ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3)
 
-common_middleware = [
+# -----------------------------
+# Analysis Sub Agent
+# -----------------------------
+analysis_sub_agent_middleware = [
     SummarizationMiddleware(
         model=sub_agent_llm,
         max_tokens_before_summary=120000,
         messages_to_keep=20,
     ),
-    ToolCallLimitMiddleware(run_limit=15),
+    ToolCallLimitMiddleware(
+        run_limit=15,
+    ),
 ]
 
+analysis_sub_agent_graph = create_agent(
+    model=sub_agent_llm,
+    tools=[execute_python_code],
+    system_prompt=ANALYSIS_AGENT_SYSTEM_PROMPT,
+    middleware=analysis_sub_agent_middleware,
+).with_config({"recursion_limit": 1000})
 
-subagents = [
-    {
-        "name": "analysis-agent",
-        "description": """Data analysis specialist for processing data, creating visualizations,
+analysis_sub_agent = CompiledSubAgent(
+    name="analysis-agent",
+    description="""Data analysis specialist for processing data, creating visualizations,
 statistical analysis, and trend identification. Use when you need charts,
 graphs, calculations, or any code-based analysis.""",
-        "system_prompt": ANALYSIS_AGENT_SYSTEM_PROMPT,
-        "tools": [execute_python_code],
-        "middleware": common_middleware,
-        "model": sub_agent_llm
-    },
-    {
-        "name": "web-research-agent",
-        "description": """Web research specialist for searching the internet, gathering information,
+    runnable=analysis_sub_agent_graph,
+)
+
+# -----------------------------
+# Web Research Sub Agent
+# -----------------------------
+web_research_sub_agent_middleware = [
+    SummarizationMiddleware(
+        model=sub_agent_llm,
+        max_tokens_before_summary=120000,
+        messages_to_keep=20,
+    ),
+    ToolCallLimitMiddleware(
+        run_limit=15,
+    ),
+]
+
+web_research_sub_agent_graph = create_agent(
+    model=sub_agent_llm,
+    tools=[web_search],
+    system_prompt=WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
+    middleware=web_research_sub_agent_middleware,
+).with_config({"recursion_limit": 1000})
+
+web_research_sub_agent = CompiledSubAgent(
+    name="web-research-agent",
+    description="""Web research specialist for searching the internet, gathering information,
 finding sources, and collecting raw data on topics. Use for initial
 research and fact-finding. Always call with ONE focused research topic. For multiple topics, call multiple times in parallel""",
-        "system_prompt": WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
-        "tools": [web_search],
-        "middleware": common_middleware,
-        "model": sub_agent_llm
-    },
-    {
-        "name": "credibility-agent",
-        "description": """Credibility and fact-checking specialist. Use to verify research outputs,
+    runnable=web_research_sub_agent_graph,
+)
+
+# -----------------------------
+# Credibility Sub Agent
+# -----------------------------
+credibility_sub_agent_middleware = [
+    SummarizationMiddleware(
+        model=sub_agent_llm,
+        max_tokens_before_summary=120000,
+        messages_to_keep=20,
+    ),
+    ToolCallLimitMiddleware(
+        run_limit=15,
+    ),
+]
+
+credibility_sub_agent_graph = create_agent(
+    model=sub_agent_llm,
+    tools=[web_search],
+    system_prompt=CREDIBILITY_AGENT_SYSTEM_PROMPT,
+    middleware=credibility_sub_agent_middleware,
+).with_config({"recursion_limit": 1000})
+
+credibility_sub_agent = CompiledSubAgent(
+    name="credibility-agent",
+    description="""Credibility and fact-checking specialist. Use to verify research outputs,
 check source reliability, validate claims, and ensure findings are
 trustworthy and defensible. ALWAYS use before finalizing reports.""",
-        "system_prompt": CREDIBILITY_AGENT_SYSTEM_PROMPT,
-        "tools": [web_search],
-        "middleware": common_middleware,
-        "model": sub_agent_llm
-    }
-]
+    runnable=credibility_sub_agent_graph,
+)
 
 # =============================================================================
 # BACKEND (Ephemeral + Persistent Memory)
@@ -183,6 +230,40 @@ def make_backend(runtime):
 
 
 # =============================================================================
+# MEMORY MANAGEMENT MIDDLEWARE
+# =============================================================================
+
+class MemoryCleanupMiddleware(BaseMiddleware):
+    """Automatically keep only the N most recent memory items after each agent run."""
+
+    def __init__(self, max_items: int = 100):
+        self.max_items = max_items
+        self.namespace = ("agent", "memories")
+
+    def after_agent(self, state, run, tool_calls):
+        """Run cleanup after agent completes a full run."""
+        try:
+            # Get all memories in the namespace
+            memories = list(store.search(self.namespace))
+
+            if len(memories) > self.max_items:
+                # Sort by updated_at timestamp, most recent first
+                sorted_mems = sorted(memories, key=lambda m: m.updated_at, reverse=True)
+
+                # Keep only the most recent N items, delete the rest
+                to_delete = sorted_mems[self.max_items:]
+                for mem in to_delete:
+                    store.delete(self.namespace, mem.key)
+
+                print(f"🧹 Memory cleanup: Deleted {len(to_delete)} old memories, keeping {self.max_items} most recent")
+        except Exception as e:
+            # Don't fail the agent run if cleanup fails
+            print(f"⚠️ Memory cleanup failed: {e}")
+
+        return state, run, tool_calls
+
+
+# =============================================================================
 # CREATE AGENT
 # =============================================================================
 
@@ -192,12 +273,13 @@ def create_research_agent():
     """Create the deep research agent."""
     return create_deep_agent(
         tools=[web_search],
-        system_prompt=MAIN_AGENT_PROMPT,
-        subagents=subagents,
+        system_prompt=MAIN_AGENT_SYSTEM_PROMPT,
+        subagents=[analysis_sub_agent,web_research_sub_agent,credibility_sub_agent],
         store=store,
         checkpointer=checkpointer,
         backend=make_backend,
-        model=agent_llm
+        model=agent_llm,
+        middleware=[MemoryCleanupMiddleware(max_items=100)]
     ).with_config({"recursion_limit": 1000})
 
 
