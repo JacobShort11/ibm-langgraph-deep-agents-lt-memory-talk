@@ -82,19 +82,36 @@ class TestPostgresStoreConfiguration:
         # Verify from_conn_string was called
         mock_store_class.from_conn_string.assert_called()
 
-    @patch('agent.PostgresSaver')
-    def test_postgres_checkpointer_created_from_conn_string(self, mock_saver_class):
+    def test_postgres_checkpointer_created_from_conn_string(self):
         """Test that PostgresSaver is created with connection string."""
-        mock_saver = Mock()
-        mock_saver_class.from_conn_string.return_value = mock_saver
+        # This test verifies that PostgresSaver.from_conn_string is called during module initialization
+        # We need to patch before importing the module
+        import sys
 
-        # Import will trigger checkpointer creation
-        import importlib
-        import agent as agent_module
-        importlib.reload(agent_module)
+        # Remove agent module if already loaded
+        if 'agent' in sys.modules:
+            del sys.modules['agent']
 
-        # Verify from_conn_string was called
-        mock_saver_class.from_conn_string.assert_called()
+        with patch.dict(os.environ, {
+            'DATABASE_URL': 'postgresql://test:test@localhost:5432/test_db',
+            'TAVILY_API_KEY': 'test_key',
+            'DAYTONA_API_KEY': 'test_key',
+            'OPENAI_API_KEY': 'test_key'
+        }):
+            with patch('langgraph.checkpoint.postgres.PostgresSaver') as mock_saver_class:
+                with patch('langgraph.store.postgres.PostgresStore') as mock_store_class:
+                    with patch('agent.Daytona'):
+                        with patch('agent.TavilyClient'):
+                            mock_saver = Mock()
+                            mock_store = Mock()
+                            mock_saver_class.from_conn_string.return_value = mock_saver
+                            mock_store_class.from_conn_string.return_value = mock_store
+
+                            # Now import agent - this will trigger the module-level code
+                            import agent as agent_module
+
+                            # Verify from_conn_string was called
+                            mock_saver_class.from_conn_string.assert_called()
 
     @patch.dict(os.environ, {'DATABASE_URL': 'postgresql://user:pass@localhost:5432/testdb'})
     @patch('agent.PostgresStore')

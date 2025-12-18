@@ -33,6 +33,11 @@ Setup your .env file containing:
 
 ### 3. Start PostgreSQL
 
+Docker runs PostgreSQL in an isolated container (no system installation needed). Data persists between sessions in Docker volumes.
+
+Ensure Docker is running first: `colima start` or open Docker Desktop.
+
+**First time setup** (run from any directory):
 ```bash
 docker run -d \
   --name deep-agent-db \
@@ -41,6 +46,18 @@ docker run -d \
   -p 5432:5432 \
   postgres:15
 ```
+
+**Subsequent sessions** (if container is stopped):
+```bash
+docker start deep-agent-db
+```
+
+**Stop container** (optional - uses minimal resources, safe to leave running):
+```bash
+docker stop deep-agent-db
+```
+
+Check if running: `docker ps`
 
 ### 4. Launch
 
