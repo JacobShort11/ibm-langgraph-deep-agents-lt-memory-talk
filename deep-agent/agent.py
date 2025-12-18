@@ -1,21 +1,22 @@
 """
 Deep Research Agent with LangGraph Deep Agents Framework
 
-This agent orchestrates research tasks using specialized sub-agents:
-1. Analysis Agent - Code execution for graphs, data analysis, trend spotting
+A research agent with 3 specialized sub-agents:
+1. Analysis Agent - Code execution (Daytona) for graphs and data analysis
 2. Web Research Agent - Web browsing and information gathering  
 3. Credibility Agent - Fact-checking and source verification
 
 Features:
-- Automatic context compaction (at ~170k tokens)
-- Long-term memory via PostgreSQL (tracks website quality, lessons learned)
-- File system for managing research outputs
+- Daytona sandboxed code execution for safe Python/plotting
+- Long-term memory via PostgreSQL
+- Automatic context compaction (built into framework at ~170k tokens)
 """
 
 import os
 from typing import Literal
 from dotenv import load_dotenv
 from tavily import TavilyClient
+from daytona_sdk import Daytona
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.postgres import PostgresStore
@@ -23,95 +24,95 @@ from langgraph.checkpoint.postgres import PostgresSaver
 
 load_dotenv()
 
+
 # =============================================================================
-# TOOLS - Web Search & Code Execution
+# DATABASE (Required)
 # =============================================================================
 
-tavily_client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+DATABASE_URL = os.environ["DATABASE_URL"]
+store = PostgresStore.from_conn_string(DATABASE_URL)
+checkpointer = PostgresSaver.from_conn_string(DATABASE_URL)
+
+
+# =============================================================================
+# TOOLS
+# =============================================================================
+
+# Web Search
+tavily_client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 
 def web_search(
     query: str,
     max_results: int = 5,
     topic: Literal["general", "news", "finance"] = "general",
-    include_raw_content: bool = False,
 ) -> dict:
     """
-    Search the web for information on a given topic.
+    Search the web for information.
     
     Args:
-        query: The search query string
-        max_results: Maximum number of results to return (default 5)
-        topic: Category of search - 'general', 'news', or 'finance'
-        include_raw_content: Whether to include full page content
-        
-    Returns:
-        Search results with titles, URLs, and snippets
+        query: Search query string
+        max_results: Max results to return (default 5)
+        topic: 'general', 'news', or 'finance'
     """
-    return tavily_client.search(
-        query,
-        max_results=max_results,
-        include_raw_content=include_raw_content,
-        topic=topic,
-    )
+    return tavily_client.search(query, max_results=max_results, topic=topic)
+
+
+# Code Execution (Daytona)
+daytona = Daytona()
 
 
 def execute_python_code(code: str) -> str:
     """
-    Execute Python code for data analysis, visualization, and calculations.
+    Execute Python code in a Daytona sandbox for data analysis and visualization.
     
-    The code runs in an isolated environment with access to:
-    - pandas, numpy for data manipulation
-    - matplotlib, seaborn, plotly for visualization
-    - scipy, sklearn for statistical analysis
+    Available libraries: pandas, numpy, matplotlib, seaborn, scipy, sklearn
+    
+    To save plots, use: plt.savefig('/home/daytona/outputs/chart.png')
+    Then read the file to get the plot data.
     
     Args:
         code: Python code to execute
         
     Returns:
-        Output from code execution (stdout, generated files, etc.)
+        Execution output and any generated file paths
     """
-    import subprocess
-    import tempfile
-    
-    # Create a temporary file for the code
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        # Add common imports
-        full_code = """
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-import json
-import warnings
-warnings.filterwarnings('ignore')
-
-# Set up plotting
-plt.style.use('seaborn-v0_8-whitegrid')
-plt.rcParams['figure.figsize'] = [10, 6]
-
-""" + code
-        f.write(full_code)
-        temp_path = f.name
+    # Create a sandbox
+    sandbox = daytona.create()
     
     try:
-        result = subprocess.run(
-            ['python', temp_path],
-            capture_output=True,
-            text=True,
-            timeout=120  # 2 minute timeout
-        )
-        output = result.stdout
-        if result.stderr:
-            output += f"\n\nStderr:\n{result.stderr}"
-        return output if output else "Code executed successfully (no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Code execution timed out (>120 seconds)"
-    except Exception as e:
-        return f"Error executing code: {str(e)}"
+        # Setup code with common imports
+        setup = """
+import pandas as pd
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+os.makedirs('/home/daytona/outputs', exist_ok=True)
+"""
+        # Run setup + user code
+        response = sandbox.process.code_run(setup + "\n" + code)
+        
+        output_parts = []
+        
+        if response.result:
+            output_parts.append(f"Output:\n{response.result}")
+        
+        # Check for generated files
+        try:
+            files = sandbox.fs.list_files("/home/daytona/outputs")
+            if files:
+                output_parts.append(f"Generated files: {', '.join(files)}")
+        except Exception:
+            pass
+        
+        return "\n\n".join(output_parts) if output_parts else "Code executed successfully"
+        
     finally:
-        os.unlink(temp_path)
+        daytona.remove(sandbox)
+
 
 
 # =============================================================================
@@ -340,102 +341,54 @@ trustworthy and defensible. ALWAYS use before finalizing reports.""",
 
 
 # =============================================================================
-# AGENT FACTORY
+# BACKEND (Ephemeral + Persistent Memory)
 # =============================================================================
 
-def create_research_agent(
-    db_uri: str = None,
-    use_memory: bool = True,
-):
-    """
-    Create the deep research agent with all sub-agents and memory.
-    
-    Args:
-        db_uri: PostgreSQL connection string for persistent memory.
-                If None, uses DATABASE_URL env var or falls back to in-memory.
-        use_memory: Whether to enable long-term memory (default True)
-        
-    Returns:
-        Compiled LangGraph agent ready to use
-    """
-    db_uri = db_uri or os.environ.get("DATABASE_URL")
-    
-    # Set up persistent storage if database is available
-    if db_uri and use_memory:
-        store = PostgresStore.from_conn_string(db_uri)
-        checkpointer = PostgresSaver.from_conn_string(db_uri)
-        
-        # Configure composite backend for long-term memory
-        def make_backend(runtime):
-            return CompositeBackend(
-                default=StateBackend(runtime),  # Ephemeral (per-session)
-                routes={
-                    "/memories/": StoreBackend(runtime),  # Persistent across sessions
-                }
-            )
-        
-        agent = create_deep_agent(
-            tools=[web_search],  # Main agent also has web search for quick lookups
-            system_prompt=MAIN_AGENT_SYSTEM_PROMPT,
-            subagents=subagents,
-            store=store,
-            checkpointer=checkpointer,
-            backend=make_backend,
-        )
-    else:
-        # Fallback to in-memory (for testing/development)
-        from langgraph.checkpoint.memory import MemorySaver
-        from langgraph.store.memory import InMemoryStore
-        
-        store = InMemoryStore()
-        checkpointer = MemorySaver()
-        
-        def make_backend(runtime):
-            return CompositeBackend(
-                default=StateBackend(runtime),
-                routes={
-                    "/memories/": StoreBackend(runtime),
-                }
-            )
-        
-        agent = create_deep_agent(
-            tools=[web_search],
-            system_prompt=MAIN_AGENT_SYSTEM_PROMPT,
-            subagents=subagents,
-            store=store,
-            checkpointer=checkpointer,
-            backend=make_backend,
-        )
-    
-    return agent
+def make_backend(runtime):
+    """Ephemeral storage by default, persistent for /memories/"""
+    return CompositeBackend(
+        default=StateBackend(runtime),
+        routes={"/memories/": StoreBackend(runtime)},
+    )
 
 
 # =============================================================================
-# CREATE THE AGENT (for LangGraph Studio / langgraph dev)
+# CREATE AGENT
 # =============================================================================
 
-# This is the compiled graph that LangGraph Studio will use
+def create_research_agent():
+    """Create the deep research agent."""
+    return create_deep_agent(
+        tools=[web_search],
+        system_prompt=MAIN_AGENT_PROMPT,
+        subagents=subagents,
+        store=store,
+        checkpointer=checkpointer,
+        backend=make_backend,
+    )
+
+
+# Agent instance for LangGraph Studio
 agent = create_research_agent()
 
 
 # =============================================================================
-# DIRECT EXECUTION (for testing)
+# CLI TEST
 # =============================================================================
 
 if __name__ == "__main__":
     import uuid
     
-    # Create a unique thread for this conversation
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     
-    # Test the agent
+    print("Deep Research Agent")
+    print(f"Thread: {thread_id[:8]}...")
+    
     result = agent.invoke(
-        {"messages": [{"role": "user", "content": "What are the latest trends in AI agents?"}]},
+        {"messages": [{"role": "user", "content": "What are the latest AI agent trends?"}]},
         config=config
     )
     
-    print("\n" + "="*50)
-    print("AGENT RESPONSE:")
-    print("="*50)
+    print("\nResponse:")
     print(result["messages"][-1].content)
