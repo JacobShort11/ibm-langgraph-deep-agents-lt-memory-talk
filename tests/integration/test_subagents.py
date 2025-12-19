@@ -346,3 +346,147 @@ class TestSubAgentMiddlewareStacks:
         assert 'analysis-agent' in agent_names
         assert 'web-research-agent' in agent_names
         assert 'credibility-agent' in agent_names
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+class TestDaytonaPlotGeneration:
+    """Integration tests for Daytona plot generation and access."""
+
+    @patch('agent.daytona')
+    def test_execute_python_code_generates_plot(self, mock_daytona):
+        """Test that execute_python_code can generate and save a plot."""
+        import agent
+
+        # Setup mock
+        mock_sandbox = Mock()
+        mock_sandbox.process.code_run.return_value = Mock(result="Plot saved successfully")
+        mock_sandbox.fs.list_files.return_value = ['sine_wave.png']
+        mock_daytona.create.return_value = mock_sandbox
+
+        # Replace the global daytona temporarily
+        original_daytona = agent.daytona
+        agent.daytona = mock_daytona
+
+        try:
+            # Code to generate a simple plot
+            code = """
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Generate simple data
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+# Create plot
+plt.figure(figsize=(10, 6))
+plt.plot(x, y, 'b-', linewidth=2)
+plt.title('Simple Sine Wave')
+plt.xlabel('X axis')
+plt.ylabel('Y axis')
+plt.grid(True)
+
+# Save to outputs directory
+plt.savefig('/home/daytona/outputs/sine_wave.png')
+print("Plot saved successfully")
+"""
+
+            # Execute the code
+            result = agent.execute_python_code(code)
+
+            # Verify the output
+            assert result is not None
+            assert "sine_wave.png" in result.lower() or "plot saved successfully" in result.lower()
+
+            # Verify sandbox was created and cleaned up
+            mock_daytona.create.assert_called_once()
+            mock_daytona.delete.assert_called_once_with(mock_sandbox)
+            print(f"Test result: {result}")
+        finally:
+            agent.daytona = original_daytona
+
+    @patch('agent.daytona')
+    def test_execute_python_code_handles_data_analysis(self, mock_daytona):
+        """Test that execute_python_code can perform data analysis and visualization."""
+        import agent
+
+        # Setup mock
+        mock_sandbox = Mock()
+        mock_sandbox.process.code_run.return_value = Mock(result="Mean: 46.8\nMax: 78\nMin: 23")
+        mock_sandbox.fs.list_files.return_value = ['bar_chart.png']
+        mock_daytona.create.return_value = mock_sandbox
+
+        # Replace the global daytona temporarily
+        original_daytona = agent.daytona
+        agent.daytona = mock_daytona
+
+        try:
+            code = """
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Create sample data
+data = {
+    'category': ['A', 'B', 'C', 'D', 'E'],
+    'values': [23, 45, 56, 78, 32]
+}
+df = pd.DataFrame(data)
+
+# Create bar chart
+plt.figure(figsize=(10, 6))
+plt.bar(df['category'], df['values'], color='steelblue')
+plt.title('Sample Bar Chart')
+plt.xlabel('Category')
+plt.ylabel('Values')
+plt.grid(axis='y', alpha=0.3)
+
+# Save the chart
+plt.savefig('/home/daytona/outputs/bar_chart.png')
+
+# Print summary statistics
+print(f"Mean: {df['values'].mean()}")
+print(f"Max: {df['values'].max()}")
+print(f"Min: {df['values'].min()}")
+"""
+
+            result = agent.execute_python_code(code)
+
+            # Verify outputs
+            assert result is not None
+            # Should contain either the file name or the statistics
+            assert "bar_chart.png" in result.lower() or "mean:" in result.lower()
+
+            # Verify sandbox lifecycle
+            mock_daytona.create.assert_called_once()
+            mock_daytona.delete.assert_called_once_with(mock_sandbox)
+            print(f"Test result: {result}")
+        finally:
+            agent.daytona = original_daytona
+
+    @patch('agent.daytona')
+    def test_execute_python_code_cleans_up_sandbox(self, mock_daytona):
+        """Test that Daytona sandbox is properly cleaned up after execution."""
+        import agent
+
+        # Setup mock
+        mock_sandbox = Mock()
+        mock_sandbox.process.code_run.return_value = Mock(result="Success")
+        mock_sandbox.fs.list_files.return_value = []
+        mock_daytona.create.return_value = mock_sandbox
+
+        # Execute simple code
+        code = "print('Hello, World!')"
+
+        # Replace the global daytona temporarily
+        original_daytona = agent.daytona
+        agent.daytona = mock_daytona
+
+        try:
+            result = agent.execute_python_code(code)
+
+            # Verify sandbox was created and removed
+            mock_daytona.create.assert_called_once()
+            mock_daytona.delete.assert_called_once_with(mock_sandbox)
+        finally:
+            # Restore original
+            agent.daytona = original_daytona
