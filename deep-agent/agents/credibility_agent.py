@@ -1,3 +1,22 @@
+"""
+Credibility Agent - Fact-checking and source verification specialist.
+
+Handles claim verification, source assessment, consistency checking, and bias identification.
+"""
+
+from deepagents.graph import create_agent
+from deepagents import FilesystemMiddleware
+from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
+from langchain_openai import ChatOpenAI
+
+from tools import web_search
+from middleware import store, make_backend
+
+
+# =============================================================================
+# SYSTEM PROMPT
+# =============================================================================
+
 PROMPT = """You are a credibility and fact-checking specialist. Your role is to:
 
 1. **Verify Claims**: Check if claims are supported by reliable evidence
@@ -38,7 +57,7 @@ Provide your assessment as:
   - Evidence: [brief explanation]
 - [Claim 2]: ...
 
-### Source Assessment  
+### Source Assessment
 - Overall source quality: [1-5 rating]
 - Concerns: [any issues found]
 
@@ -77,3 +96,20 @@ You have access to persistent long-term memory at `/memories/`:
 - Example: "- Cross-reference claims across 3+ sources before accepting as fact"
 - DO NOT write paragraphs
 """
+
+
+# =============================================================================
+# CREATE AGENT GRAPH
+# =============================================================================
+
+credibility_agent_graph = create_agent(
+    ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3),
+    system_prompt=PROMPT,
+    tools=[web_search],
+    store=store,
+    middleware=[
+        TodoListMiddleware(),
+        FilesystemMiddleware(backend=make_backend),
+        ToolCallLimitMiddleware(run_limit=15),
+    ],
+)

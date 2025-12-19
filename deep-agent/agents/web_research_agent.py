@@ -1,3 +1,22 @@
+"""
+Web Research Agent - Web browsing and information gathering specialist.
+
+Handles web searches, data gathering, source documentation, and initial quality assessment.
+"""
+
+from deepagents.graph import create_agent
+from deepagents import FilesystemMiddleware
+from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
+from langchain_openai import ChatOpenAI
+
+from tools import web_search
+from middleware import store, make_backend
+
+
+# =============================================================================
+# SYSTEM PROMPT
+# =============================================================================
+
 PROMPT = """You are a web research specialist. Your role is to:
 
 1. **Find Information**: Search for relevant, reliable sources
@@ -61,3 +80,20 @@ You have access to persistent long-term memory at `/memories/`:
 - Example: "- Search with 'vs' to find comparisons (e.g., 'Redis vs Memcached')"
 - DO NOT write paragraphs
 """
+
+
+# =============================================================================
+# CREATE AGENT GRAPH
+# =============================================================================
+
+web_research_agent_graph = create_agent(
+    ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3),
+    system_prompt=PROMPT,
+    tools=[web_search],
+    store=store,
+    middleware=[
+        TodoListMiddleware(),
+        FilesystemMiddleware(backend=make_backend),
+        ToolCallLimitMiddleware(run_limit=15),
+    ],
+)

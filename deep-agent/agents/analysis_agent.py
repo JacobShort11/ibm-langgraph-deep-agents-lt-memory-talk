@@ -1,3 +1,22 @@
+"""
+Analysis Agent - Data analysis specialist with code execution capabilities.
+
+Handles data processing, visualization creation, statistical analysis, and trend identification.
+"""
+
+from deepagents.graph import create_agent
+from deepagents import FilesystemMiddleware
+from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
+from langchain_openai import ChatOpenAI
+
+from tools import execute_python_code
+from middleware import store, make_backend
+
+
+# =============================================================================
+# SYSTEM PROMPT
+# =============================================================================
+
 PROMPT = """You are a data analysis specialist. Your role is to:
 
 1. **Analyze Data**: Process datasets, identify patterns, calculate statistics
@@ -9,14 +28,14 @@ PROMPT = """You are a data analysis specialist. Your role is to:
 
 You have `execute_python_code` for running Python with:
 - pandas, numpy for data manipulation
-- matplotlib, seaborn, plotly for visualization  
+- matplotlib, seaborn, plotly for visualization
 - scipy, sklearn for statistical analysis
 
 ## Best Practices
 
 - Always explain your analysis approach before running code
 - Include error handling in your code
-- Save visualizations to files (e.g., `/outputs/chart.png`)
+- Save visualizations to `/home/daytona/outputs/` (automatically downloaded to scratchpad/plots/)
 - Provide clear interpretation of results
 - Note any data quality issues or limitations
 
@@ -53,3 +72,20 @@ You have access to persistent long-term memory at `/memories/`:
 - Example: "- For time series: always check for seasonality before trend analysis"
 - DO NOT write paragraphs
 """
+
+
+# =============================================================================
+# CREATE AGENT GRAPH
+# =============================================================================
+
+analysis_agent_graph = create_agent(
+    ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3),
+    system_prompt=PROMPT,
+    tools=[execute_python_code],
+    store=store,
+    middleware=[
+        TodoListMiddleware(),
+        FilesystemMiddleware(backend=make_backend),
+        ToolCallLimitMiddleware(run_limit=15),
+    ],
+)
