@@ -1,5 +1,8 @@
 """
 Integration tests for sub-agent creation and configuration.
+
+Updated for SubAgent-based architecture where sub-agents are defined as
+configuration objects (SubAgent TypedDicts) rather than pre-compiled graphs.
 """
 
 import pytest
@@ -36,20 +39,24 @@ class TestAnalysisSubAgent:
         assert description is not None
         assert "data analysis" in description.lower() or "analysis" in description.lower()
 
-    def test_analysis_sub_agent_has_runnable(self):
-        """Test analysis sub-agent has runnable graph."""
+    def test_analysis_sub_agent_has_system_prompt(self):
+        """Test analysis sub-agent has system_prompt (SubAgent architecture)."""
         import agent
 
-        assert 'runnable' in agent.analysis_sub_agent
-        assert agent.analysis_sub_agent['runnable'] is not None
+        # SubAgent objects have 'system_prompt' instead of 'runnable'
+        assert 'system_prompt' in agent.analysis_sub_agent
+        assert agent.analysis_sub_agent['system_prompt'] is not None
+        assert len(agent.analysis_sub_agent['system_prompt']) > 0
 
     def test_analysis_sub_agent_tools(self):
         """Test analysis sub-agent is configured with correct tools."""
         import agent
 
-        # The analysis agent should have access to execute_python_code
-        # This is tested via the graph configuration
-        assert hasattr(agent, 'analysis_sub_agent_graph')
+        # SubAgent has 'tools' field
+        assert 'tools' in agent.analysis_sub_agent
+        assert len(agent.analysis_sub_agent['tools']) > 0
+        # First tool should be execute_python_code
+        assert agent.analysis_sub_agent['tools'][0].__name__ == 'execute_python_code'
 
     def test_analysis_sub_agent_middleware_configured(self):
         """Test analysis sub-agent has middleware."""
@@ -57,15 +64,15 @@ class TestAnalysisSubAgent:
 
         middleware = agent.analysis_sub_agent_middleware
         assert isinstance(middleware, list)
-        assert len(middleware) >= 2  # Should have summarization and tool limit
+        assert len(middleware) >= 1  # At minimum has ToolCallLimitMiddleware
 
-    def test_analysis_sub_agent_recursion_limit(self):
-        """Test analysis sub-agent has recursion limit configured."""
+    def test_analysis_sub_agent_has_model(self):
+        """Test analysis sub-agent has model configured."""
         import agent
 
-        # The graph should have recursion_limit set
-        # This is configured via .with_config({"recursion_limit": 1000})
-        assert hasattr(agent, 'analysis_sub_agent_graph')
+        # SubAgent has 'model' field
+        assert 'model' in agent.analysis_sub_agent
+        assert agent.analysis_sub_agent['model'] is not None
 
 
 @pytest.mark.integration
@@ -93,12 +100,12 @@ class TestWebResearchSubAgent:
         assert description is not None
         assert "web" in description.lower() or "research" in description.lower()
 
-    def test_web_research_sub_agent_has_runnable(self):
-        """Test web research sub-agent has runnable graph."""
+    def test_web_research_sub_agent_has_system_prompt(self):
+        """Test web research sub-agent has system_prompt."""
         import agent
 
-        assert 'runnable' in agent.web_research_sub_agent
-        assert agent.web_research_sub_agent['runnable'] is not None
+        assert 'system_prompt' in agent.web_research_sub_agent
+        assert agent.web_research_sub_agent['system_prompt'] is not None
 
     def test_web_research_sub_agent_middleware_configured(self):
         """Test web research sub-agent has middleware."""
@@ -106,7 +113,7 @@ class TestWebResearchSubAgent:
 
         middleware = agent.web_research_sub_agent_middleware
         assert isinstance(middleware, list)
-        assert len(middleware) >= 2
+        assert len(middleware) >= 1
 
 
 @pytest.mark.integration
@@ -134,12 +141,12 @@ class TestCredibilitySubAgent:
         assert description is not None
         assert "credibility" in description.lower() or "fact" in description.lower()
 
-    def test_credibility_sub_agent_has_runnable(self):
-        """Test credibility sub-agent has runnable graph."""
+    def test_credibility_sub_agent_has_system_prompt(self):
+        """Test credibility sub-agent has system_prompt."""
         import agent
 
-        assert 'runnable' in agent.credibility_sub_agent
-        assert agent.credibility_sub_agent['runnable'] is not None
+        assert 'system_prompt' in agent.credibility_sub_agent
+        assert agent.credibility_sub_agent['system_prompt'] is not None
 
     def test_credibility_sub_agent_middleware_configured(self):
         """Test credibility sub-agent has middleware."""
@@ -147,7 +154,7 @@ class TestCredibilitySubAgent:
 
         middleware = agent.credibility_sub_agent_middleware
         assert isinstance(middleware, list)
-        assert len(middleware) >= 2
+        assert len(middleware) >= 1
 
 
 @pytest.mark.integration
@@ -158,24 +165,26 @@ class TestSubAgentToolAssignments:
         """Test that analysis agent has execute_python_code tool."""
         import agent
 
-        # Analysis agent graph is created with [execute_python_code] tool
-        # Verify it was created correctly
-        assert hasattr(agent, 'analysis_sub_agent_graph')
-        # The actual tool assignment is done via create_agent
+        # Check the tools field in SubAgent
+        assert 'tools' in agent.analysis_sub_agent
+        tools = agent.analysis_sub_agent['tools']
+        assert any(tool.__name__ == 'execute_python_code' for tool in tools)
 
     def test_web_research_agent_has_web_search(self):
         """Test that web research agent has web_search tool."""
         import agent
 
-        # Web research agent graph is created with [web_search] tool
-        assert hasattr(agent, 'web_research_sub_agent_graph')
+        assert 'tools' in agent.web_research_sub_agent
+        tools = agent.web_research_sub_agent['tools']
+        assert any(tool.__name__ == 'web_search' for tool in tools)
 
     def test_credibility_agent_has_web_search(self):
         """Test that credibility agent has web_search tool."""
         import agent
 
-        # Credibility agent graph is created with [web_search] tool
-        assert hasattr(agent, 'credibility_sub_agent_graph')
+        assert 'tools' in agent.credibility_sub_agent
+        tools = agent.credibility_sub_agent['tools']
+        assert any(tool.__name__ == 'web_search' for tool in tools)
 
 
 @pytest.mark.integration
@@ -188,7 +197,7 @@ class TestSubAgentLLMConfiguration:
 
         # sub_agent_llm should be configured with gpt-5.1-2025-11-13
         assert hasattr(agent, 'sub_agent_llm')
-        # The actual model name is checked during initialization
+        assert agent.sub_agent_llm.model_name == "gpt-5.1-2025-11-13"
 
     def test_sub_agents_have_retry_configuration(self):
         """Test that sub-agents have max_retries configured."""
@@ -196,6 +205,7 @@ class TestSubAgentLLMConfiguration:
 
         # ChatOpenAI should be initialized with max_retries=3
         assert hasattr(agent, 'sub_agent_llm')
+        assert agent.sub_agent_llm.max_retries == 3
 
 
 @pytest.mark.integration
@@ -210,6 +220,8 @@ class TestSubAgentPrompts:
         # Verify the prompt is imported and used
         assert ANALYSIS_PROMPT is not None
         assert len(ANALYSIS_PROMPT) > 0
+        # Verify it's actually used in the SubAgent
+        assert agent.analysis_sub_agent['system_prompt'] == ANALYSIS_PROMPT
 
     def test_web_research_agent_has_system_prompt(self):
         """Test that web research agent uses correct system prompt."""
@@ -218,6 +230,7 @@ class TestSubAgentPrompts:
 
         assert WEB_RESEARCH_PROMPT is not None
         assert len(WEB_RESEARCH_PROMPT) > 0
+        assert agent.web_research_sub_agent['system_prompt'] == WEB_RESEARCH_PROMPT
 
     def test_credibility_agent_has_system_prompt(self):
         """Test that credibility agent uses correct system prompt."""
@@ -226,37 +239,41 @@ class TestSubAgentPrompts:
 
         assert CREDIBILITY_PROMPT is not None
         assert len(CREDIBILITY_PROMPT) > 0
+        assert agent.credibility_sub_agent['system_prompt'] == CREDIBILITY_PROMPT
 
 
 @pytest.mark.integration
-class TestSubAgentCompiledSubAgentInstances:
-    """Integration tests for CompiledSubAgent instances."""
+class TestSubAgentConfiguration:
+    """Integration tests for SubAgent instances (new architecture)."""
 
-    def test_all_sub_agents_are_compiled_sub_agents(self):
-        """Test that all sub-agents are CompiledSubAgent instances."""
+    def test_all_sub_agents_are_subagent_dicts(self):
+        """Test that all sub-agents are SubAgent TypedDicts."""
         import agent
 
-        # CompiledSubAgent is a TypedDict, so instances are dicts
+        # SubAgent is a TypedDict, so instances are dicts
         assert isinstance(agent.analysis_sub_agent, dict)
         assert isinstance(agent.web_research_sub_agent, dict)
         assert isinstance(agent.credibility_sub_agent, dict)
 
-    def test_compiled_sub_agents_have_required_attributes(self):
-        """Test that CompiledSubAgent instances have name, description, runnable."""
+    def test_subagents_have_required_fields(self):
+        """Test that SubAgent instances have name, description, system_prompt, tools, model, middleware."""
         import agent
+
+        required_fields = ['name', 'description', 'system_prompt', 'tools', 'model', 'middleware']
 
         for sub_agent in [
             agent.analysis_sub_agent,
             agent.web_research_sub_agent,
             agent.credibility_sub_agent,
         ]:
-            assert 'name' in sub_agent
-            assert 'description' in sub_agent
-            assert 'runnable' in sub_agent
+            for field in required_fields:
+                assert field in sub_agent, f"Missing field '{field}' in sub-agent {sub_agent['name']}"
 
             assert isinstance(sub_agent['name'], str)
             assert isinstance(sub_agent['description'], str)
-            assert sub_agent['runnable'] is not None
+            assert isinstance(sub_agent['system_prompt'], str)
+            assert isinstance(sub_agent['tools'], list)
+            assert isinstance(sub_agent['middleware'], list)
 
 
 @pytest.mark.integration
@@ -298,27 +315,34 @@ class TestSubAgentDescriptions:
 class TestSubAgentMiddlewareStacks:
     """Integration tests for complete middleware stacks."""
 
-    def test_middleware_includes_summarization(self):
-        """Test all sub-agents have summarization middleware."""
-        import agent
-
-        # Check each middleware list
-        for middleware_list in [
-            agent.analysis_sub_agent_middleware,
-            agent.web_research_sub_agent_middleware,
-            agent.credibility_sub_agent_middleware,
-        ]:
-            # Should have at least 2 middleware components
-            assert len(middleware_list) >= 2
-
     def test_middleware_includes_tool_limit(self):
         """Test all sub-agents have tool call limit middleware."""
         import agent
+        from langchain.agents.middleware import ToolCallLimitMiddleware
 
-        # Each should have 2 middleware: summarization and tool limit
+        # Each should have ToolCallLimitMiddleware
         for middleware_list in [
             agent.analysis_sub_agent_middleware,
             agent.web_research_sub_agent_middleware,
             agent.credibility_sub_agent_middleware,
         ]:
-            assert len(middleware_list) >= 2
+            assert len(middleware_list) >= 1
+            # Check that at least one middleware is ToolCallLimitMiddleware
+            assert any(isinstance(m, ToolCallLimitMiddleware) for m in middleware_list)
+
+    def test_subagents_list_exists(self):
+        """Test that subagents list is properly defined."""
+        import agent
+
+        assert hasattr(agent, 'subagents')
+        assert isinstance(agent.subagents, list)
+        assert len(agent.subagents) == 3
+
+    def test_subagents_list_contains_all_agents(self):
+        """Test that subagents list contains all three sub-agents."""
+        import agent
+
+        agent_names = [sa['name'] for sa in agent.subagents]
+        assert 'analysis-agent' in agent_names
+        assert 'web-research-agent' in agent_names
+        assert 'credibility-agent' in agent_names

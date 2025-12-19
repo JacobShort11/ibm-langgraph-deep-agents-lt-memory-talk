@@ -134,17 +134,20 @@ class TestAgentRecursionConfiguration:
         assert research_agent is not None
 
     def test_all_sub_agents_have_recursion_limit(self):
-        """Test that all sub-agents have recursion limit configured."""
+        """Test that sub-agents are configured (recursion limit handled by deep agent framework)."""
         import agent
 
-        # All sub-agent graphs should have recursion_limit: 1000
-        # This is configured via .with_config({"recursion_limit": 1000})
-        for graph_name in [
-            'analysis_sub_agent_graph',
-            'web_research_sub_agent_graph',
-            'credibility_sub_agent_graph',
-        ]:
-            assert hasattr(agent, graph_name)
+        # In the new SubAgent architecture, recursion limits are handled by create_deep_agent
+        # Sub-agents are configuration objects, not pre-compiled graphs
+        # Verify all sub-agents are properly configured
+        assert hasattr(agent, 'subagents')
+        assert len(agent.subagents) == 3
+
+        # Verify each sub-agent has required configuration
+        for subagent in agent.subagents:
+            assert 'name' in subagent
+            assert 'system_prompt' in subagent
+            assert 'tools' in subagent
 
 
 @pytest.mark.integration

@@ -282,3 +282,18 @@ def create_research_agent():
 
 # Agent instance for LangGraph Studio
 agent = create_research_agent()
+
+
+# =============================================================================
+# BACKWARDS COMPATIBILITY EXPORTS (for tests)
+# =============================================================================
+
+# Export individual sub-agents for backwards compatibility with existing tests
+analysis_sub_agent = subagents[0]
+web_research_sub_agent = subagents[1]
+credibility_sub_agent = subagents[2]
+
+# Export middleware for backwards compatibility
+analysis_sub_agent_middleware = sub_agent_middleware
+web_research_sub_agent_middleware = sub_agent_middleware
+credibility_sub_agent_middleware = sub_agent_middleware

@@ -264,6 +264,7 @@ class TestMiddlewareIntegration:
     def test_analysis_agent_has_middleware(self):
         """Test that analysis agent has correct middleware configuration."""
         # This test verifies the middleware setup in agent.py
+        # In new SubAgent architecture, middleware is shared and contains ToolCallLimitMiddleware
         import importlib
         import agent
 
@@ -273,7 +274,7 @@ class TestMiddlewareIntegration:
         # Check that middleware list is defined
         assert hasattr(agent, 'analysis_sub_agent_middleware')
         assert isinstance(agent.analysis_sub_agent_middleware, list)
-        assert len(agent.analysis_sub_agent_middleware) >= 2
+        assert len(agent.analysis_sub_agent_middleware) >= 1  # At least ToolCallLimitMiddleware
 
     def test_web_research_agent_has_middleware(self):
         """Test that web research agent has correct middleware configuration."""
@@ -284,7 +285,7 @@ class TestMiddlewareIntegration:
 
         assert hasattr(agent, 'web_research_sub_agent_middleware')
         assert isinstance(agent.web_research_sub_agent_middleware, list)
-        assert len(agent.web_research_sub_agent_middleware) >= 2
+        assert len(agent.web_research_sub_agent_middleware) >= 1  # At least ToolCallLimitMiddleware
 
     def test_credibility_agent_has_middleware(self):
         """Test that credibility agent has correct middleware configuration."""
@@ -295,7 +296,7 @@ class TestMiddlewareIntegration:
 
         assert hasattr(agent, 'credibility_sub_agent_middleware')
         assert isinstance(agent.credibility_sub_agent_middleware, list)
-        assert len(agent.credibility_sub_agent_middleware) >= 2
+        assert len(agent.credibility_sub_agent_middleware) >= 1  # At least ToolCallLimitMiddleware
 
     def test_main_agent_has_memory_cleanup_middleware(self):
         """Test that main agent includes MemoryCleanupMiddleware."""
