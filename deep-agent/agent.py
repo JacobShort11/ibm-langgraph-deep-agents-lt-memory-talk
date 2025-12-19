@@ -125,6 +125,21 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
 
 
 # =============================================================================
+# BACKEND (Ephemeral + Persistent Memory)
+# =============================================================================
+
+def make_backend(runtime):
+    """Persistent for /memories/, ephemeral for everything else."""
+    return CompositeBackend(
+        default=StateBackend(runtime),
+        routes={
+            "/memories/": StoreBackend(runtime),
+        },
+    )
+
+
+
+# =============================================================================
 # SUB-AGENT CONFIGURATIONS
 # =============================================================================
 
@@ -149,6 +164,7 @@ analysis_sub_agent_graph = create_agent(
     tools=[execute_python_code],
     system_prompt=ANALYSIS_AGENT_SYSTEM_PROMPT,
     middleware=analysis_sub_agent_middleware,
+    store=store,
 ).with_config({"recursion_limit": 1000})
 
 analysis_sub_agent = CompiledSubAgent(
@@ -178,6 +194,7 @@ web_research_sub_agent_graph = create_agent(
     tools=[web_search],
     system_prompt=WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
     middleware=web_research_sub_agent_middleware,
+    store=store,
 ).with_config({"recursion_limit": 1000})
 
 web_research_sub_agent = CompiledSubAgent(
@@ -207,6 +224,7 @@ credibility_sub_agent_graph = create_agent(
     tools=[web_search],
     system_prompt=CREDIBILITY_AGENT_SYSTEM_PROMPT,
     middleware=credibility_sub_agent_middleware,
+    store=store,
 ).with_config({"recursion_limit": 1000})
 
 credibility_sub_agent = CompiledSubAgent(
@@ -217,16 +235,6 @@ trustworthy and defensible. ALWAYS use before finalizing reports.""",
     runnable=credibility_sub_agent_graph,
 )
 
-# =============================================================================
-# BACKEND (Ephemeral + Persistent Memory)
-# =============================================================================
-
-def make_backend(runtime):
-    """Ephemeral storage by default, persistent for /memories/"""
-    return CompositeBackend(
-        default=StateBackend(runtime),
-        routes={"/memories/": StoreBackend(runtime)},
-    )
 
 
 # =============================================================================
