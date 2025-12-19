@@ -52,4 +52,14 @@ Provide your assessment as:
 
 ### Final Verdict
 - Trustworthy and defensible? [Yes/With caveats/Needs work]
+
+## Memory Writing (if updating /memories/*.txt)
+
+If you write to memory .txt files, use markdown-formatted content inside:
+- Organize with ## headers for sections
+- Each memory = one bullet point starting with "-"
+- Keep bullets specific and actionable
+- Example: "- Check Stack Overflow answer dates - old answers may use deprecated APIs"
+- Example: "- Cross-reference claims across 3+ sources before accepting as fact"
+- DO NOT write paragraphs
 """

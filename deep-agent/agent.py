@@ -14,6 +14,7 @@ Features:
 
 import os
 from typing import Literal
+from datetime import datetime
 from dotenv import load_dotenv
 from tavily import TavilyClient
 from daytona_sdk import Daytona
@@ -30,6 +31,7 @@ from prompts.main_agent import PROMPT as MAIN_AGENT_SYSTEM_PROMPT
 from prompts.analysis_agent import PROMPT as ANALYSIS_AGENT_SYSTEM_PROMPT
 from prompts.web_research_agent import PROMPT as WEB_RESEARCH_AGENT_SYSTEM_PROMPT
 from prompts.credibility_agent import PROMPT as CREDIBILITY_AGENT_SYSTEM_PROMPT
+from prompts.trim_middleware import PROMPT as TRIM_SYSTEM_PROMPT
 
 load_dotenv()
 
@@ -242,33 +244,70 @@ trustworthy and defensible. ALWAYS use before finalizing reports.""",
 # =============================================================================
 
 class MemoryCleanupMiddleware(AgentMiddleware):
-    """Automatically keep only the N most recent memory items after each agent run."""
+    """LLM-based memory trimmer that keeps only the best N memories per .txt file."""
 
-    def __init__(self, max_items: int = 100):
-        self.max_items = max_items
-        self.namespace = ("agent", "memories")
+    def __init__(self, store_instance, max_memories_per_file: int = 30, cleanup_model: str = "gpt-4o-mini"):
+        self.max_memories = max_memories_per_file
+        self.store = store_instance
+        self.llm = ChatOpenAI(model=cleanup_model, temperature=0)
 
     def after_agent(self, state, run, tool_calls):
-        """Run cleanup after agent completes a full run."""
+        """Trim all .txt memory files after each agent run."""
         try:
-            # Get all memories in the namespace
-            memories = list(store.search(self.namespace))
+            # Find all .txt files in /memories/
+            all_items = list(self.store.search(("filesystem",)))
+            txt_files = [item for item in all_items if item.key.startswith("/memories/") and item.key.endswith(".txt")]
 
-            if len(memories) > self.max_items:
-                # Sort by updated_at timestamp, most recent first
-                sorted_mems = sorted(memories, key=lambda m: m.updated_at, reverse=True)
-
-                # Keep only the most recent N items, delete the rest
-                to_delete = sorted_mems[self.max_items:]
-                for mem in to_delete:
-                    store.delete(self.namespace, mem.key)
-
-                print(f"🧹 Memory cleanup: Deleted {len(to_delete)} old memories, keeping {self.max_items} most recent")
+            for txt_file in txt_files:
+                self._trim_file(txt_file)
         except Exception as e:
-            # Don't fail the agent run if cleanup fails
             print(f"⚠️ Memory cleanup failed: {e}")
 
         return state, run, tool_calls
+
+    def _trim_file(self, file_item):
+        """Trim a single .txt file using LLM."""
+        try:
+            # Get current content
+            content_lines = file_item.value.get("content", [])
+            current_content = "\n".join(content_lines) if isinstance(content_lines, list) else str(content_lines)
+
+            # Count memories (each bullet point = 1 memory)
+            memory_count = current_content.count("\n- ")
+
+            # Skip if already small enough
+            if memory_count <= self.max_memories:
+                return
+
+            # Format the prompt with runtime values
+            prompt = TRIM_SYSTEM_PROMPT.format(
+                max_memories=self.max_memories,
+                file_key=file_item.key,
+                current_content=current_content
+            )
+
+            response = self.llm.invoke(prompt)
+            trimmed = response.content.strip()
+
+            # Remove markdown code blocks if present (we do not want this)
+            if "```" in trimmed:
+                trimmed = trimmed.replace("```markdown", "").replace("```", "").strip()
+
+            # Save trimmed version
+            self.store.put(
+                ("filesystem",),
+                file_item.key,
+                {
+                    "content": trimmed.split("\n"),
+                    "created_at": file_item.value.get("created_at", datetime.now().isoformat()),
+                    "modified_at": datetime.now().isoformat(),
+                }
+            )
+
+            print(f"🧹 Trimmed {file_item.key}: {memory_count} → {self.max_memories} memories")
+
+        except Exception as e:
+            print(f"⚠️ Failed to trim {file_item.key}: {e}")
 
 
 # =============================================================================
@@ -287,7 +326,7 @@ def create_research_agent():
         checkpointer=checkpointer,
         backend=make_backend,
         model=agent_llm,
-        middleware=[MemoryCleanupMiddleware(max_items=100)]
+        middleware=[MemoryCleanupMiddleware(store, max_memories_per_file=30)]
     ).with_config({"recursion_limit": 1000})
 
 

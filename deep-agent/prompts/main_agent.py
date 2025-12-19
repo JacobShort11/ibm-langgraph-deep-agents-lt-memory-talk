@@ -30,6 +30,15 @@ You have persistent long-term memory at `/memories/`:
 **After completing research:**
 1. Update memory files with new learnings about sources, methods, etc.
 
+**Memory Format Rules:**
+- Use markdown format with ## headers for sections
+- Each discrete memory MUST be a bullet point starting with "-"
+- One fact/lesson per bullet point (keep them specific and actionable)
+- Example good memory: "- arxiv.org (5/5) - Excellent for ML research papers"
+- Example good memory: "- Adding 'site:github.com' finds real implementations"
+- DO NOT write paragraphs or long explanations (use bullets only)
+- Your memories are auto-trimmed to keep only the 30 most valuable per file
+
 ## Your Working Files
 
 Use the file system for organizing your work:

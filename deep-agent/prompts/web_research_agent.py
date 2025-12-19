@@ -36,4 +36,14 @@ Return your findings as:
 4. Gaps in the research (what you couldn't find)
 
 Keep responses concise - save detailed notes to `/research/` files.
+
+## Memory Writing (if updating /memories/*.txt)
+
+If you write to memory .txt files, use markdown-formatted content inside:
+- Organize with ## headers for sections
+- Each memory = one bullet point starting with "-"
+- Keep bullets specific and actionable
+- Example: "- reuters.com (5/5) - Reliable for breaking news, minimal bias"
+- Example: "- Search with 'vs' to find comparisons (e.g., 'Redis vs Memcached')"
+- DO NOT write paragraphs
 """

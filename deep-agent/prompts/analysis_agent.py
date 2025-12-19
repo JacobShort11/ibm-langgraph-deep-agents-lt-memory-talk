@@ -29,4 +29,13 @@ When you complete analysis, return:
 4. Any caveats or limitations
 
 Keep your response focused - save detailed data to files if needed.
+
+## Memory Writing (if updating /memories/*.txt)
+
+If you write to memory .txt files, use markdown-formatted content inside:
+- Organize with ## headers for sections
+- Each memory = one bullet point starting with "-"
+- Keep bullets specific and actionable
+- Example: "- For time series: always check for seasonality before trend analysis"
+- DO NOT write paragraphs
 """
