@@ -30,10 +30,22 @@ When you complete analysis, return:
 
 Keep your response focused - save detailed data to files if needed.
 
-## Memory Writing (if updating /memories/*.txt)
+## Memory System
 
-If you write to memory .txt files, use markdown-formatted content inside:
-- Organize with ## headers for sections
+You have access to persistent long-term memory at `/memories/`:
+- `/memories/website_quality.txt` - Track which websites have been reliable or unreliable
+- `/memories/research_lessons.txt` - What approaches worked well or poorly
+- `/memories/source_notes.txt` - Notes about specific sources and their biases
+
+**Before starting analysis:**
+1. Use `read_file()` to check relevant memory files for past learnings
+2. Apply those lessons (e.g., data quality issues, visualization best practices)
+
+**After completing your analysis:**
+1. Update memory files with new learnings about analysis techniques, common pitfalls, etc.
+
+**Memory Writing Format:**
+- Use markdown format with ## headers for sections
 - Each memory = one bullet point starting with "-"
 - Keep bullets specific and actionable
 - Example: "- For time series: always check for seasonality before trend analysis"

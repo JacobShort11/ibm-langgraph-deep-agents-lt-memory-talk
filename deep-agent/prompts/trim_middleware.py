@@ -10,4 +10,5 @@ Rules:
 - Keep the {max_memories} most specific, actionable, and diverse memories
 - Maintain the markdown format (## headers, - bullet points)
 - Remove duplicates and vague items
-- Return ONLY the trimmed content, no code blocks or explanations"""
+- Return ONLY the trimmed content, no code blocks or explanations
+"""

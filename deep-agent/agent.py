@@ -18,13 +18,11 @@ from datetime import datetime
 from dotenv import load_dotenv
 from tavily import TavilyClient
 from daytona_sdk import Daytona
-from deepagents import create_deep_agent
+from deepagents import create_deep_agent, SubAgent
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.postgres import PostgresStore
 from langgraph.checkpoint.postgres import PostgresSaver
 from langchain.agents.middleware import SummarizationMiddleware, ToolCallLimitMiddleware, AgentMiddleware
-from langchain.agents import create_agent
-from deepagents import CompiledSubAgent
 from langchain_openai import ChatOpenAI
 
 from prompts.main_agent import PROMPT as MAIN_AGENT_SYSTEM_PROMPT
@@ -108,10 +106,12 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
         
         output_parts = []
         
+        # If the code does print("hello") → that goes into response.result
         if response.result:
             output_parts.append(f"Output:\n{response.result}")
         
         # Check for generated files
+        # If the code does plt.savefig("/home/daytona/outputs/chart.png") → that creates a file that gets detected by the list_files check
         try:
             files = sandbox.fs.list_files("/home/daytona/outputs")
             if files:
@@ -147,95 +147,45 @@ def make_backend(runtime):
 
 sub_agent_llm = ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3)
 
-# -----------------------------
-# Analysis Sub Agent
-# -----------------------------
-analysis_sub_agent_middleware = [
-    SummarizationMiddleware(
-        model=sub_agent_llm,
-        max_tokens_before_summary=120000,
-        messages_to_keep=20,
-    ),
-    ToolCallLimitMiddleware(
-        run_limit=15,
-    ),
+# Shared middleware for all sub-agents (in addition to auto-added middleware from create_deep_agent)
+sub_agent_middleware = [
+    ToolCallLimitMiddleware(run_limit=15),
 ]
 
-analysis_sub_agent_graph = create_agent(
-    model=sub_agent_llm,
-    tools=[execute_python_code],
-    system_prompt=ANALYSIS_AGENT_SYSTEM_PROMPT,
-    middleware=analysis_sub_agent_middleware,
-    store=store,
-).with_config({"recursion_limit": 1000})
-
-analysis_sub_agent = CompiledSubAgent(
-    name="analysis-agent",
-    description="""Data analysis specialist for processing data, creating visualizations,
+# Define sub-agents using SubAgent objects
+# create_deep_agent will automatically add: TodoListMiddleware, FilesystemMiddleware, SummarizationMiddleware
+subagents = [
+    SubAgent(
+        name="analysis-agent",
+        description="""Data analysis specialist for processing data, creating visualizations,
 statistical analysis, and trend identification. Use when you need charts,
 graphs, calculations, or any code-based analysis.""",
-    runnable=analysis_sub_agent_graph,
-)
-
-# -----------------------------
-# Web Research Sub Agent
-# -----------------------------
-web_research_sub_agent_middleware = [
-    SummarizationMiddleware(
+        system_prompt=ANALYSIS_AGENT_SYSTEM_PROMPT,
+        tools=[execute_python_code],
         model=sub_agent_llm,
-        max_tokens_before_summary=120000,
-        messages_to_keep=20,
+        middleware=sub_agent_middleware,
     ),
-    ToolCallLimitMiddleware(
-        run_limit=15,
-    ),
-]
-
-web_research_sub_agent_graph = create_agent(
-    model=sub_agent_llm,
-    tools=[web_search],
-    system_prompt=WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
-    middleware=web_research_sub_agent_middleware,
-    store=store,
-).with_config({"recursion_limit": 1000})
-
-web_research_sub_agent = CompiledSubAgent(
-    name="web-research-agent",
-    description="""Web research specialist for searching the internet, gathering information,
+    SubAgent(
+        name="web-research-agent",
+        description="""Web research specialist for searching the internet, gathering information,
 finding sources, and collecting raw data on topics. Use for initial
 research and fact-finding. Always call with ONE focused research topic. For multiple topics, call multiple times in parallel""",
-    runnable=web_research_sub_agent_graph,
-)
-
-# -----------------------------
-# Credibility Sub Agent
-# -----------------------------
-credibility_sub_agent_middleware = [
-    SummarizationMiddleware(
+        system_prompt=WEB_RESEARCH_AGENT_SYSTEM_PROMPT,
+        tools=[web_search],
         model=sub_agent_llm,
-        max_tokens_before_summary=120000,
-        messages_to_keep=20,
+        middleware=sub_agent_middleware,
     ),
-    ToolCallLimitMiddleware(
-        run_limit=15,
-    ),
-]
-
-credibility_sub_agent_graph = create_agent(
-    model=sub_agent_llm,
-    tools=[web_search],
-    system_prompt=CREDIBILITY_AGENT_SYSTEM_PROMPT,
-    middleware=credibility_sub_agent_middleware,
-    store=store,
-).with_config({"recursion_limit": 1000})
-
-credibility_sub_agent = CompiledSubAgent(
-    name="credibility-agent",
-    description="""Credibility and fact-checking specialist. Use to verify research outputs,
+    SubAgent(
+        name="credibility-agent",
+        description="""Credibility and fact-checking specialist. Use to verify research outputs,
 check source reliability, validate claims, and ensure findings are
 trustworthy and defensible. ALWAYS use before finalizing reports.""",
-    runnable=credibility_sub_agent_graph,
-)
+        system_prompt=CREDIBILITY_AGENT_SYSTEM_PROMPT,
+        tools=[web_search],
+        model=sub_agent_llm,
+        middleware=sub_agent_middleware,
+    ),
+]
 
 
 
@@ -321,7 +271,7 @@ def create_research_agent():
     return create_deep_agent(
         tools=[web_search],
         system_prompt=MAIN_AGENT_SYSTEM_PROMPT,
-        subagents=[analysis_sub_agent,web_research_sub_agent,credibility_sub_agent],
+        subagents=subagents,
         store=store,
         checkpointer=checkpointer,
         backend=make_backend,

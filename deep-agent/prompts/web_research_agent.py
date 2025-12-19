@@ -37,10 +37,22 @@ Return your findings as:
 
 Keep responses concise - save detailed notes to `/research/` files.
 
-## Memory Writing (if updating /memories/*.txt)
+## Memory System
 
-If you write to memory .txt files, use markdown-formatted content inside:
-- Organize with ## headers for sections
+You have access to persistent long-term memory at `/memories/`:
+- `/memories/website_quality.txt` - Track which websites have been reliable or unreliable
+- `/memories/research_lessons.txt` - What approaches worked well or poorly
+- `/memories/source_notes.txt` - Notes about specific sources and their biases
+
+**Before starting research:**
+1. Use `read_file()` to check relevant memory files for past learnings
+2. Apply those lessons (e.g., known reliable sources, effective search strategies)
+
+**After completing your research:**
+1. Update memory files with new learnings about sources, search tactics, etc.
+
+**Memory Writing Format:**
+- Use markdown format with ## headers for sections
 - Each memory = one bullet point starting with "-"
 - Keep bullets specific and actionable
 - Example: "- reuters.com (5/5) - Reliable for breaking news, minimal bias"
