@@ -23,6 +23,8 @@ You have persistent long-term memory at `/memories/`:
 - `/memories/research_lessons.txt` - What approaches worked well or poorly
 - `/memories/source_notes.txt` - Notes about specific sources and their biases
 
+**IMPORTANT: ONLY use these 3 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 3 files.**
+
 **At the start of each research task:**
 1. Read your memory files to recall past learnings
 2. Apply those lessons to your current approach

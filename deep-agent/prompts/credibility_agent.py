@@ -60,6 +60,8 @@ You have access to persistent long-term memory at `/memories/`:
 - `/memories/research_lessons.txt` - What approaches worked well or poorly
 - `/memories/source_notes.txt` - Notes about specific sources and their biases
 
+**IMPORTANT: ONLY use these 3 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 3 files.**
+
 **Before starting credibility checks:**
 1. Use `read_file()` to check relevant memory files for past learnings
 2. Apply those lessons (e.g., known unreliable sources, common credibility pitfalls)
