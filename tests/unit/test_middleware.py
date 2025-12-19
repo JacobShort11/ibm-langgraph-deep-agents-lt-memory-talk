@@ -20,32 +20,33 @@ class TestMemoryCleanupMiddleware:
         """Test middleware initializes with correct defaults."""
         from agent import MemoryCleanupMiddleware
 
-        middleware = MemoryCleanupMiddleware()
+        mock_store = Mock()
+        middleware = MemoryCleanupMiddleware(mock_store)
 
-        assert middleware.max_items == 100
-        assert middleware.namespace == ("agent", "memories")
+        assert middleware.max_memories == 30
+        assert middleware.store == mock_store
 
-    def test_middleware_initialization_custom_max_items(self):
-        """Test middleware with custom max_items."""
+    def test_middleware_initialization_custom_max_memories(self):
+        """Test middleware with custom max_memories_per_file."""
         from agent import MemoryCleanupMiddleware
 
-        middleware = MemoryCleanupMiddleware(max_items=50)
+        mock_store = Mock()
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=50)
 
-        assert middleware.max_items == 50
+        assert middleware.max_memories == 50
 
-    @patch('agent.store')
-    def test_after_agent_no_cleanup_needed(self, mock_store):
+    def test_after_agent_no_cleanup_needed(self):
         """Test after_agent when cleanup is not needed."""
         from agent import MemoryCleanupMiddleware
 
-        # Setup: Less than max items
-        mock_memories = [
-            Mock(key=f"mem_{i}", updated_at=datetime(2025, 1, 1 + i // 24, i % 24, 0, 0))
-            for i in range(50)
-        ]
-        mock_store.search.return_value = mock_memories
+        # Setup: Memory file with fewer than max memories (each bullet = 1 memory)
+        mock_store = Mock()
+        mock_item = Mock()
+        mock_item.key = "/memories/test.txt"
+        mock_item.value = {"content": ["## Test", "- Memory 1", "- Memory 2", "- Memory 3"]}
+        mock_store.search.return_value = [mock_item]
 
-        middleware = MemoryCleanupMiddleware(max_items=100)
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {"test": "state"}
         run = Mock()
         tool_calls = []
@@ -55,28 +56,34 @@ class TestMemoryCleanupMiddleware:
             state, run, tool_calls
         )
 
-        # Verify: No deletions
-        mock_store.delete.assert_not_called()
+        # Verify: No trimming (put should not be called)
+        mock_store.put.assert_not_called()
         assert result_state == state
         assert result_run == run
         assert result_tool_calls == tool_calls
 
-    @patch('agent.store')
-    def test_after_agent_cleanup_old_memories(self, mock_store):
-        """Test after_agent deletes old memories when over limit."""
+    @patch('agent.ChatOpenAI')
+    def test_after_agent_trims_large_files(self, mock_openai):
+        """Test after_agent trims files when over memory limit."""
         from agent import MemoryCleanupMiddleware
 
-        # Setup: More than max items
-        mock_memories = [
-            Mock(
-                key=f"mem_{i:03d}",
-                updated_at=datetime(2025, 1, 1, i // 60, i % 60, 0),
-            )
-            for i in range(150)
-        ]
-        mock_store.search.return_value = mock_memories
+        # Setup: Memory file with more than max memories
+        mock_store = Mock()
+        mock_item = Mock()
+        mock_item.key = "/memories/test.txt"
+        # Create content with 50 memories (50 bullet points)
+        content = "## Test Section\n" + "\n".join([f"- Memory {i}" for i in range(50)])
+        mock_item.value = {"content": content.split("\n"), "created_at": "2025-01-01T00:00:00"}
+        mock_store.search.return_value = [mock_item]
 
-        middleware = MemoryCleanupMiddleware(max_items=100)
+        # Mock LLM response
+        mock_llm = Mock()
+        mock_response = Mock()
+        mock_response.content = "## Test Section\n" + "\n".join([f"- Memory {i}" for i in range(30)])
+        mock_llm.invoke.return_value = mock_response
+        mock_openai.return_value = mock_llm
+
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {"test": "state"}
         run = Mock()
         tool_calls = []
@@ -87,36 +94,36 @@ class TestMemoryCleanupMiddleware:
                 state, run, tool_calls
             )
 
-        # Verify: 50 oldest memories deleted (150 - 100)
-        assert mock_store.delete.call_count == 50
-
-        # Verify the correct memories were deleted (oldest ones)
-        deleted_keys = [call[0][1] for call in mock_store.delete.call_args_list]
-        # The oldest 50 memories should be deleted
-        for i in range(50):
-            assert f"mem_{i:03d}" in deleted_keys
+        # Verify: File was trimmed (put should be called)
+        mock_store.put.assert_called_once()
 
         # Verify cleanup message printed
         mock_print.assert_called()
         print_message = mock_print.call_args[0][0]
-        assert "Memory cleanup" in print_message
-        assert "50" in print_message
-        assert "100" in print_message
+        assert "Trimmed" in print_message or "trimmed" in print_message
 
-    @patch('agent.store')
-    def test_after_agent_keeps_most_recent(self, mock_store):
-        """Test that after_agent keeps the most recent memories."""
+    @patch('agent.ChatOpenAI')
+    def test_after_agent_only_trims_txt_files(self, mock_openai):
+        """Test that after_agent only processes .txt files."""
         from agent import MemoryCleanupMiddleware
 
-        # Setup: Memories with different timestamps
-        mock_memories = [
-            Mock(key="old_mem", updated_at=datetime(2025, 1, 1, 0, 0, 0)),
-            Mock(key="new_mem", updated_at=datetime(2025, 1, 15, 0, 0, 0)),
-            Mock(key="newer_mem", updated_at=datetime(2025, 1, 20, 0, 0, 0)),
-        ]
-        mock_store.search.return_value = mock_memories
+        # Setup: Mix of .txt and non-.txt files
+        mock_store = Mock()
+        mock_txt_item = Mock()
+        mock_txt_item.key = "/memories/test.txt"
+        content = "## Test\n" + "\n".join([f"- Memory {i}" for i in range(5)])
+        mock_txt_item.value = {"content": content.split("\n")}
 
-        middleware = MemoryCleanupMiddleware(max_items=2)
+        mock_other_item = Mock()
+        mock_other_item.key = "/memories/data.json"
+        mock_other_item.value = {"content": "{}"}
+
+        mock_store.search.return_value = [mock_txt_item, mock_other_item]
+
+        mock_llm = Mock()
+        mock_openai.return_value = mock_llm
+
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {}
         run = Mock()
         tool_calls = []
@@ -124,19 +131,18 @@ class TestMemoryCleanupMiddleware:
         # Execute
         middleware.after_agent(state, run, tool_calls)
 
-        # Verify: Only the oldest memory is deleted
-        mock_store.delete.assert_called_once()
-        call_args = mock_store.delete.call_args[0]
-        assert call_args[1] == "old_mem"  # Oldest memory deleted
+        # Verify: Only .txt file content should be processed (no trimming needed as < 30 memories)
+        # LLM should not be invoked since file is small enough
+        mock_llm.invoke.assert_not_called()
 
-    @patch('agent.store')
-    def test_after_agent_uses_correct_namespace(self, mock_store):
-        """Test that after_agent searches the correct namespace."""
+    def test_after_agent_searches_filesystem_namespace(self):
+        """Test that after_agent searches the filesystem namespace."""
         from agent import MemoryCleanupMiddleware
 
+        mock_store = Mock()
         mock_store.search.return_value = []
 
-        middleware = MemoryCleanupMiddleware()
+        middleware = MemoryCleanupMiddleware(mock_store)
         state = {}
         run = Mock()
         tool_calls = []
@@ -144,17 +150,17 @@ class TestMemoryCleanupMiddleware:
         middleware.after_agent(state, run, tool_calls)
 
         # Verify correct namespace used
-        mock_store.search.assert_called_once_with(("agent", "memories"))
+        mock_store.search.assert_called_once_with(("filesystem",))
 
-    @patch('agent.store')
-    def test_after_agent_error_handling(self, mock_store):
+    def test_after_agent_error_handling(self):
         """Test that after_agent handles errors gracefully."""
         from agent import MemoryCleanupMiddleware
 
         # Setup: Store search raises error
+        mock_store = Mock()
         mock_store.search.side_effect = Exception("Database error")
 
-        middleware = MemoryCleanupMiddleware()
+        middleware = MemoryCleanupMiddleware(mock_store)
         state = {"test": "state"}
         run = Mock()
         tool_calls = []
@@ -175,45 +181,53 @@ class TestMemoryCleanupMiddleware:
         error_message = mock_print.call_args[0][0]
         assert "Memory cleanup failed" in error_message
 
-    @patch('agent.store')
-    def test_after_agent_delete_error_handling(self, mock_store):
-        """Test error handling when deletion fails."""
+    @patch('agent.ChatOpenAI')
+    def test_after_agent_trim_error_handling(self, mock_openai):
+        """Test error handling when trimming fails."""
         from agent import MemoryCleanupMiddleware
 
-        # Setup: Many memories, but delete fails
-        mock_memories = [
-            Mock(key=f"mem_{i}", updated_at=datetime(2025, 1, 1, i // 60, i % 60, 0))
-            for i in range(150)
-        ]
-        mock_store.search.return_value = mock_memories
-        mock_store.delete.side_effect = Exception("Delete error")
+        # Setup: File that needs trimming, but LLM fails
+        mock_store = Mock()
+        mock_item = Mock()
+        mock_item.key = "/memories/test.txt"
+        content = "## Test\n" + "\n".join([f"- Memory {i}" for i in range(50)])
+        mock_item.value = {"content": content.split("\n")}
+        mock_store.search.return_value = [mock_item]
 
-        middleware = MemoryCleanupMiddleware(max_items=100)
+        mock_llm = Mock()
+        mock_llm.invoke.side_effect = Exception("LLM error")
+        mock_openai.return_value = mock_llm
+
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {}
         run = Mock()
         tool_calls = []
 
         # Execute: Should not raise
         with patch('builtins.print') as mock_print:
-            middleware.after_agent(state, run, tool_calls)
+            result_state, result_run, result_tool_calls = middleware.after_agent(
+                state, run, tool_calls
+            )
+
+        # Verify: State returned unchanged
+        assert result_state == state
 
         # Verify error was handled
-        error_message = mock_print.call_args[0][0]
-        assert "Memory cleanup failed" in error_message
+        assert any("Failed to trim" in str(call[0][0]) for call in mock_print.call_args_list)
 
-    @patch('agent.store')
-    def test_after_agent_exact_limit(self, mock_store):
+    def test_after_agent_exact_limit(self):
         """Test when memory count exactly equals the limit."""
         from agent import MemoryCleanupMiddleware
 
-        # Setup: Exactly max_items
-        mock_memories = [
-            Mock(key=f"mem_{i}", updated_at=datetime(2025, 1, 1 + i // 24, i % 24, 0, 0))
-            for i in range(100)
-        ]
-        mock_store.search.return_value = mock_memories
+        # Setup: Exactly max memories
+        mock_store = Mock()
+        mock_item = Mock()
+        mock_item.key = "/memories/test.txt"
+        content = "## Test\n" + "\n".join([f"- Memory {i}" for i in range(30)])
+        mock_item.value = {"content": content.split("\n")}
+        mock_store.search.return_value = [mock_item]
 
-        middleware = MemoryCleanupMiddleware(max_items=100)
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {}
         run = Mock()
         tool_calls = []
@@ -221,17 +235,17 @@ class TestMemoryCleanupMiddleware:
         # Execute
         middleware.after_agent(state, run, tool_calls)
 
-        # Verify: No deletions when at exact limit
-        mock_store.delete.assert_not_called()
+        # Verify: No trimming when at exact limit
+        mock_store.put.assert_not_called()
 
-    @patch('agent.store')
-    def test_after_agent_empty_memories(self, mock_store):
+    def test_after_agent_empty_memories(self):
         """Test when there are no memories."""
         from agent import MemoryCleanupMiddleware
 
+        mock_store = Mock()
         mock_store.search.return_value = []
 
-        middleware = MemoryCleanupMiddleware(max_items=100)
+        middleware = MemoryCleanupMiddleware(mock_store, max_memories_per_file=30)
         state = {}
         run = Mock()
         tool_calls = []
@@ -239,8 +253,8 @@ class TestMemoryCleanupMiddleware:
         # Execute
         middleware.after_agent(state, run, tool_calls)
 
-        # Verify: No deletions
-        mock_store.delete.assert_not_called()
+        # Verify: No trimming
+        mock_store.put.assert_not_called()
 
 
 @pytest.mark.unit
@@ -314,9 +328,10 @@ class TestMiddlewareConfiguration:
         assert len(middleware_list) > 0
 
     def test_memory_cleanup_limit(self):
-        """Test that memory cleanup has correct item limit."""
+        """Test that memory cleanup has correct memories limit."""
         from agent import MemoryCleanupMiddleware
 
-        # Default should be 100 items
-        middleware = MemoryCleanupMiddleware()
-        assert middleware.max_items == 100
+        mock_store = Mock()
+        # Default should be 30 memories per file
+        middleware = MemoryCleanupMiddleware(mock_store)
+        assert middleware.max_memories == 30
