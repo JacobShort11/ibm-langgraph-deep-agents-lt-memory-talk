@@ -9,6 +9,12 @@ from daytona_sdk import Daytona
 
 daytona = Daytona()
 
+# Get absolute paths to deep-agent/scratchpad directories
+_TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEEP_AGENT_DIR = os.path.dirname(_TOOLS_DIR)
+PLOTS_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad", "plots")
+DATA_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad", "data")
+
 
 def execute_python_code(code: str) -> str:
     """
@@ -16,8 +22,9 @@ def execute_python_code(code: str) -> str:
 
     Available libraries: pandas, numpy, matplotlib, seaborn, scipy, sklearn
 
-    To save plots, use: plt.savefig('/home/daytona/outputs/chart.png')
-    Files are automatically downloaded and stored in scratchpad/plots/
+    File paths:
+    - Input data: Files from scratchpad/data/ are uploaded to /home/daytona/data/
+    - Output plots: Save to /home/daytona/outputs/ → downloaded to scratchpad/plots/
 
     Args:
         code: Python code to execute
@@ -29,6 +36,20 @@ def execute_python_code(code: str) -> str:
     sandbox = daytona.create()
 
     try:
+        # Upload any data files from local scratchpad/data to sandbox
+        uploaded_files = []
+        if os.path.exists(DATA_DIR):
+            sandbox.process.code_run("import os; os.makedirs('/home/daytona/data', exist_ok=True)")
+            for filename in os.listdir(DATA_DIR):
+                local_path = os.path.join(DATA_DIR, filename)
+                if os.path.isfile(local_path):
+                    remote_path = f"/home/daytona/data/{filename}"
+                    try:
+                        sandbox.fs.upload_file(local_path, remote_path)
+                        uploaded_files.append(filename)
+                    except Exception as e:
+                        pass  # Silently skip upload errors
+
         # Setup code with common imports
         setup = """
 import pandas as pd
@@ -45,6 +66,10 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
 
         output_parts = []
 
+        # Report uploaded data files
+        if uploaded_files:
+            output_parts.append(f"📂 Data files available at /home/daytona/data/: {', '.join(uploaded_files)}")
+
         # If the code does print("hello") → that goes into response.result
         if response.result:
             output_parts.append(f"Output:\n{response.result}")
@@ -58,13 +83,13 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
                 output_parts.append(f"Generated files: {', '.join(file_names)}")
 
                 # Download files to local filesystem
-                os.makedirs("scratchpad/plots", exist_ok=True)
+                os.makedirs(PLOTS_DIR, exist_ok=True)
                 downloaded = []
 
                 for file_info in files:
                     file_name = file_info.name if hasattr(file_info, 'name') else str(file_info)
                     remote_path = f"/home/daytona/outputs/{file_name}"
-                    local_path = os.path.join("scratchpad/plots", file_name)
+                    local_path = os.path.join(PLOTS_DIR, file_name)
 
                     try:
                         # Download file from sandbox

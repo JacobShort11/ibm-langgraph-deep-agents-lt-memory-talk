@@ -8,6 +8,7 @@ from deepagents.graph import create_agent
 from deepagents import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
 
 from tools import web_search
 from middleware import store, make_backend
@@ -119,6 +120,7 @@ credibility_agent_graph = create_agent(
     system_prompt=PROMPT,
     tools=[web_search],
     store=store,
+    checkpointer=MemorySaver(),
     middleware=[
         TodoListMiddleware(),
         FilesystemMiddleware(backend=make_backend),

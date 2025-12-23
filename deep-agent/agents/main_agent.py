@@ -14,9 +14,10 @@ Features:
 
 from deepagents import create_deep_agent
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
 
 from tools import web_search, generate_pdf_report
-from middleware import MemoryCleanupMiddleware, store, checkpointer, make_backend
+from middleware import MemoryCleanupMiddleware, store, make_backend
 
 # Import sub-agent graphs
 from .analysis_agent import analysis_agent_graph
@@ -269,7 +270,7 @@ def create_research_agent():
         system_prompt=SYSTEM_PROMPT,
         subagents=subagents,
         store=store,
-        checkpointer=checkpointer,
+        checkpointer=MemorySaver(),
         backend=make_backend,
         model=agent_llm,
         middleware=[MemoryCleanupMiddleware(store, max_memories_per_file=30)]
