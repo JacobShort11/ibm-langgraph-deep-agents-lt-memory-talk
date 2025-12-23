@@ -8,20 +8,20 @@ Coordinates 3 specialized sub-agents:
 
 Features:
 - Daytona sandboxed code execution for safe Python/plotting
-- Long-term memory via PostgreSQL
+- Long-term memory via platform-managed store
 - Automatic context compaction (built into framework at ~170k tokens)
 """
 
 from datetime import datetime, timezone
 import os
 import shutil
+import sys
 
 from deepagents import create_deep_agent
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import MemorySaver
 
 from tools import web_search
-from middleware import MemoryCleanupMiddleware, store, make_backend
+from middleware import MemoryCleanupMiddleware, make_backend
 
 
 # =============================================================================
@@ -32,6 +32,10 @@ from middleware import MemoryCleanupMiddleware, store, make_backend
 _AGENTS_DIR = os.path.dirname(os.path.abspath(__file__))
 _DEEP_AGENT_DIR = os.path.dirname(_AGENTS_DIR)
 SCRATCHPAD_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad")
+
+# Ensure absolute imports work when loaded directly from file path
+if _DEEP_AGENT_DIR not in sys.path:
+    sys.path.insert(0, _DEEP_AGENT_DIR)
 
 # Directories to clear on startup
 SCRATCHPAD_SUBDIRS = ["data", "images", "notes", "plots", "final"]
@@ -57,9 +61,9 @@ def clear_scratchpad():
     print(f"✓ Scratchpad directories cleared: {', '.join(SCRATCHPAD_SUBDIRS)}")
 
 # Import sub-agent graphs
-from .analysis_agent import analysis_agent_graph
-from .web_research_agent import web_research_agent_graph
-from .credibility_agent import credibility_agent_graph
+from agents.analysis_agent import analysis_agent_graph
+from agents.web_research_agent import web_research_agent_graph
+from agents.credibility_agent import credibility_agent_graph
 
 
 # =============================================================================
@@ -360,11 +364,9 @@ def create_research_agent():
         tools=[web_search],
         system_prompt=SYSTEM_PROMPT,
         subagents=subagents,
-        store=store,
-        checkpointer=MemorySaver(),
         backend=make_backend,
         model=agent_llm,
-        middleware=[MemoryCleanupMiddleware(store, max_memories_per_file=30)]
+        middleware=[MemoryCleanupMiddleware(max_memories_per_file=30)]
     ).with_config({"recursion_limit": 1000})
 
 

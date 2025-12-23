@@ -1,6 +1,6 @@
 """Custom middleware and memory backend for the research agent system."""
 
 from .memory_cleanup import MemoryCleanupMiddleware
-from .memory_backend import store, make_backend
+from .memory_backend import make_backend
 
-__all__ = ["MemoryCleanupMiddleware", "store", "make_backend"]
+__all__ = ["MemoryCleanupMiddleware", "make_backend"]

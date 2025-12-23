@@ -32,7 +32,7 @@ Rules:
 class MemoryCleanupMiddleware(AgentMiddleware):
     """LLM-based memory trimmer that keeps only the best N memories per .txt file."""
 
-    def __init__(self, store_instance, max_memories_per_file: int = 30, cleanup_model: str = "gpt-4o-mini"):
+    def __init__(self, store_instance=None, max_memories_per_file: int = 30, cleanup_model: str = "gpt-4o-mini"):
         self.max_memories = max_memories_per_file
         self.store = store_instance
         self.llm = ChatOpenAI(model=cleanup_model, temperature=0)
@@ -40,18 +40,22 @@ class MemoryCleanupMiddleware(AgentMiddleware):
     def after_agent(self, state, runtime):
         """Trim all .txt memory files after each agent run."""
         try:
+            store = self.store or getattr(runtime, "store", None)
+            if store is None:
+                return None
+
             # Find all .txt files in /memories/
-            all_items = list(self.store.search(("filesystem",)))
+            all_items = list(store.search(("filesystem",)))
             txt_files = [item for item in all_items if item.key.startswith("/memories/") and item.key.endswith(".txt")]
 
             for txt_file in txt_files:
-                self._trim_file(txt_file)
+                self._trim_file(store, txt_file)
         except Exception as e:
             print(f"⚠️ Memory cleanup failed: {e}")
 
         return None
 
-    def _trim_file(self, file_item):
+    def _trim_file(self, store, file_item):
         """Trim a single .txt file using LLM."""
         try:
             # Get current content
@@ -80,7 +84,7 @@ class MemoryCleanupMiddleware(AgentMiddleware):
                 trimmed = trimmed.replace("```markdown", "").replace("```", "").strip()
 
             # Save trimmed version
-            self.store.put(
+            store.put(
                 ("filesystem",),
                 file_item.key,
                 {

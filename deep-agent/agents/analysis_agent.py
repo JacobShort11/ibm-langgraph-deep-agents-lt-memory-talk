@@ -9,10 +9,9 @@ from deepagents.graph import create_agent
 from deepagents import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import MemorySaver
 
 from tools import execute_python_code
-from middleware import store, make_backend
+from middleware import make_backend
 
 
 # =============================================================================
@@ -211,8 +210,6 @@ analysis_agent_graph = create_agent(
     ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3),
     system_prompt=PROMPT,
     tools=[execute_python_code],
-    store=store,
-    checkpointer=MemorySaver(),
     middleware=[
         FilesystemMiddleware(backend=make_backend),
         ToolCallLimitMiddleware(run_limit=15),

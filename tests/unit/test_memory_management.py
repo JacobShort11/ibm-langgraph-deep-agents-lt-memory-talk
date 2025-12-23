@@ -1,6 +1,5 @@
 """Unit tests for memory backend and cleanup middleware."""
 
-import importlib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,27 +20,6 @@ class TestMemoryBackend:
         assert isinstance(backend.default, StateBackend)
         assert "/memories/" in backend.routes
         assert isinstance(backend.routes["/memories/"], StoreBackend)
-
-    def test_store_initializes_from_env(self, monkeypatch):
-        monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/testdb")
-
-        mock_cm = MagicMock()
-        mock_cm.__enter__.return_value = MagicMock(name="store")
-
-        with patch("langgraph.store.postgres.PostgresStore") as mock_store, patch(
-            "langgraph.store.postgres.base.PostgresStore"
-        ) as mock_store_base:
-            mock_store.from_conn_string.return_value = mock_cm
-            mock_store_base.from_conn_string.return_value = mock_cm
-
-            import middleware.memory_backend as memory_backend
-            importlib.reload(memory_backend)
-
-            assert (
-                mock_store.from_conn_string.called
-                or mock_store_base.from_conn_string.called
-            )
-            assert memory_backend.store == mock_cm.__enter__.return_value
 
 
 @pytest.mark.unit
