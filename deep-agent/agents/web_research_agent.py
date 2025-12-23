@@ -140,7 +140,6 @@ web_research_agent_graph = create_agent(
     store=store,
     checkpointer=MemorySaver(),
     middleware=[
-        TodoListMiddleware(),
         FilesystemMiddleware(backend=make_backend),
         ToolCallLimitMiddleware(run_limit=15),
     ],
