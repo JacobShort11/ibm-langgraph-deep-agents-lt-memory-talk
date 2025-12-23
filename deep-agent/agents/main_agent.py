@@ -114,6 +114,7 @@ Use this to:
 - Check source reliability and conflicts
 - Validate that conclusions are defensible
 - ALWAYS run before finalizing any deliverable
+Only use this for information which seem implausible, use of this agent should be limited.
 <tools>
 
 <file system>
@@ -193,7 +194,7 @@ For each stock, sector, or exposure, investigate:
 Each finding must answer:
 - WHAT happened
 - WHEN (GMT, London time)
--WHO / WHERE
+- WHO / WHERE
 - WHY it matters
 - HOW it transmits to the stock or portfolio
 - IMPACT magnitude if observable
@@ -276,6 +277,7 @@ When you have completed your research and are ready to deliver the final report:
 2. **Use the write_file tool** to save the markdown content to `/scratchpad/final/final_report.md`
 
 **Important**:
+- **All final reports MUST include 3-10 plots.** Ensure sufficient visualizations are generated via the analysis-agent before finalizing.
 - Images in markdown must use the relative path format `../plots/chart_name.png` (relative to the final folder).
 - The Sources & Citations section must be comprehensive - a reader should be able to verify ANY claim by checking its source.
 
@@ -307,7 +309,7 @@ subagents = [
     },
     {
         "name": "credibility-agent",
-        "description": """Credibility and fact-checking specialist. Use to verify research outputs,
+        "description": """Credibility and fact-checking specialist. Use to verify any questionable research outputs,
             check source reliability, validate claims, and ensure findings are
             trustworthy and defensible. ALWAYS use before finalizing reports.""",
         "runnable": credibility_agent_graph,
