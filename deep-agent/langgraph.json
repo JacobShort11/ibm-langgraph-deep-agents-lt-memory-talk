@@ -1,7 +1,10 @@
 {
     "dependencies": ["."],
     "graphs": {
-        "agent": "./agents/main_agent.py:agent"
+        "agent": "./agents/main_agent.py:agent",
+        "analysis-agent": "./agents/analysis_agent.py:analysis_agent_graph",
+        "web-research-agent": "./agents/web_research_agent.py:web_research_agent_graph",
+        "credibility-agent": "./agents/credibility_agent.py:credibility_agent_graph"
     },
     "env": ".env"
 }

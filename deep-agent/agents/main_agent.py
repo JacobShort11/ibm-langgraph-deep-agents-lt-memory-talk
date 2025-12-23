@@ -38,7 +38,7 @@ if _DEEP_AGENT_DIR not in sys.path:
     sys.path.insert(0, _DEEP_AGENT_DIR)
 
 # Directories to clear on startup
-SCRATCHPAD_SUBDIRS = ["data", "images", "notes", "plots", "final"]
+SCRATCHPAD_SUBDIRS = ["data", "images", "notes", "final"]
 
 
 def clear_scratchpad():
@@ -112,8 +112,10 @@ Use this for:
 - Price reaction analysis
 - Correlation, beta, sector aggregation
 - Any task requiring code execution, charts, or numerical summaries
+- The analysis agent returns public plot URLs (not local image files) under "Plot URLs:"; use these URLs when embedding charts
 Provide this agent with detailed instructions of what to run analysis on or what plot to generate.
-You must provide this agent with the data it needs - either in your message to it, or by saving the data to /scratchpad/data/ and telling it in the message to look for the data at this path
+You must provide this agent with all the data it needs - either in your message to it, or by saving the data to /scratchpad/data/ and telling it in the message to look for the data at this path
+Absolutely all the data the analysis sub-agent needs must be provided, it can access nothing else.
 
 3. credibility-agent
 Use this to:
@@ -136,7 +138,7 @@ You and your sub-agents have access to /scratchpad and therefore the following d
 /scratchpad/data/ contains structured datasets for this session (CSV/TSV/Excel/JSON). Do NOT put raw text here—save text docs or transcripts to /scratchpad/notes/ instead.
 /scratchpad/images/ contains any images found and saved for this session
 /scratchpad/notes/ contains any longer notes written down by either yourself or by your sub-agents. This is used for persisting important information or saving detailed info.
-/scratchpad/plots/ contains any plots created by the analysis sub agent
+/scratchpad/images/ contains any images found and saved for this session
 <file system>
 
 <memory system>
@@ -267,6 +269,7 @@ Quality Standards
 When you have completed your research and are ready to deliver the final report:
 
 1. **Write a markdown file** to `/scratchpad/final/final_report.md` with the following structure:
+   - Use direct plot URLs from the analysis agent when embedding charts (no local paths or attachments).
 
    # [Report Title]
 
@@ -278,8 +281,8 @@ When you have completed your research and are ready to deliver the final report:
    **Every fact must have an inline citation: "Statement [Source](URL)"**
 
    ## Charts and Analysis
-   ![Chart Title](../plots/chart_name.png)
-   [Include all relevant plots created by analysis-agent]
+   ![Chart Title](https://public-url-from-analysis-agent)
+   [Include all relevant plots created by analysis-agent using their public URLs; always embed the URLs returned under "Plot URLs" and never reference local file paths]
 
    ## Recommendations
    **Actionable recommendations based on the research findings:**
@@ -308,7 +311,7 @@ When you have completed your research and are ready to deliver the final report:
 
 **Important**:
 - **All final reports MUST include 3-10 plots.** Ensure sufficient visualizations are generated via the analysis-agent before finalizing.
-- Images in markdown must use the relative path format `../plots/chart_name.png` (relative to the final folder).
+- Images in markdown must use the public URLs returned by analysis-agent uploads.
 - The Sources & Citations section must be comprehensive - a reader should be able to verify ANY claim by checking its source.
 
 Your final deliverable is this markdown report at /scratchpad/final/final_report.md!
