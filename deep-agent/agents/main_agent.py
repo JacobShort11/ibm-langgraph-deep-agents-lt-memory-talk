@@ -12,12 +12,48 @@ Features:
 - Automatic context compaction (built into framework at ~170k tokens)
 """
 
+import os
+import shutil
+
 from deepagents import create_deep_agent
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
-from tools import web_search, generate_pdf_report
+from tools import web_search
 from middleware import MemoryCleanupMiddleware, store, make_backend
+
+
+# =============================================================================
+# SCRATCHPAD DIRECTORY SETUP
+# =============================================================================
+
+# Get path to scratchpad directory
+_AGENTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEEP_AGENT_DIR = os.path.dirname(_AGENTS_DIR)
+SCRATCHPAD_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad")
+
+# Directories to clear on startup
+SCRATCHPAD_SUBDIRS = ["data", "images", "notes", "plots", "final"]
+
+
+def clear_scratchpad():
+    """
+    Clear and recreate scratchpad directories for a fresh session.
+
+    This ensures each agent session starts with empty working directories.
+    Called automatically when the agent is created.
+    """
+    for subdir in SCRATCHPAD_SUBDIRS:
+        dir_path = os.path.join(SCRATCHPAD_DIR, subdir)
+
+        # Remove directory and all contents if it exists
+        if os.path.exists(dir_path):
+            shutil.rmtree(dir_path)
+
+        # Recreate empty directory
+        os.makedirs(dir_path, exist_ok=True)
+
+    print(f"✓ Scratchpad directories cleared: {', '.join(SCRATCHPAD_SUBDIRS)}")
 
 # Import sub-agent graphs
 from .analysis_agent import analysis_agent_graph
@@ -173,6 +209,25 @@ Each finding must answer:
 - Cross-reference claims across multiple sources
 <quality standards>
 
+<citation tracking>
+**CRITICAL: Track and aggregate ALL citations from sub-agents.**
+
+When web-research-agent returns findings:
+1. Extract ALL citations (URLs and source names) from its response
+2. Maintain a running list of citations throughout the research process
+3. Each fact in your final report MUST link back to its source
+
+Citation format to use throughout:
+- Inline: "Claim statement [Source Name](URL)"
+- Example: "Revenue grew 15% YoY [Company 10-Q Filing](https://sec.gov/...)"
+
+**You are responsible for ensuring every claim in the final report is traceable to a source.**
+If a sub-agent provides uncited information, either:
+- Ask the sub-agent to provide the citation
+- Exclude the claim from the final report
+- Clearly mark it as "unverified" if you must include it
+<citation tracking>
+
 <output expectations>
 All outputs must:
 - Cite sources with URLs
@@ -192,36 +247,40 @@ Quality Standards
 - Always respect the 48-hour window
 <output expectations>
 
-<pdf report generation>
+<final report>
 When you have completed your research and are ready to deliver the final report:
-1. **Compose markdown content** with the following structure:
+
+1. **Write a markdown file** to `/scratchpad/final/final_report.md` with the following structure:
+
    # [Report Title]
-   
+
    ## Executive Summary
-   [2-3 key takeaways]
-   
+   [2-3 key takeaways - each with inline citation]
+
    ## Findings
    [Detailed findings with sections for each stock/sector]
-   
+   **Every fact must have an inline citation: "Statement [Source](URL)"**
+
    ## Charts and Analysis
-   ![Chart Title](scratchpad/plots/chart_name.png)
+   ![Chart Title](../plots/chart_name.png)
    [Include all relevant plots created by analysis-agent]
-   
-   ## Sources
-   - [Source Name](URL)
-   - [Source Name](URL)
 
-2. **Use the generate_pdf_report tool** to create the PDF:
-   - Pass the markdown content
-   - Specify a descriptive filename (e.g., "tsla_48hr_report.pdf")
-   - Add an appropriate title
+   ## Sources & Citations
+   **Complete numbered list of ALL sources used in this report:**
+   1. [Source Name](URL) - What information was sourced from here
+   2. [Source Name](URL) - What information was sourced from here
+   ...
 
-3. **Report location**: The PDF will be saved to /scratchpad/reports/
+   This section is CRITICAL for reader verification. Include EVERY source cited in the report.
 
-**Important**: Images must use the scratchpad/plots/ path format in the markdown.
+2. **Use the write_file tool** to save the markdown content to `/scratchpad/final/final_report.md`
 
-Your final deliverable is this single pdf report!
-<pdf report generation>
+**Important**:
+- Images in markdown must use the relative path format `../plots/chart_name.png` (relative to the final folder).
+- The Sources & Citations section must be comprehensive - a reader should be able to verify ANY claim by checking its source.
+
+Your final deliverable is this markdown report at /scratchpad/final/final_report.md!
+</final report>
 """
 
 
@@ -265,8 +324,11 @@ agent_llm = ChatOpenAI(model="gpt-5-2025-08-07", max_retries=3)
 
 def create_research_agent():
     """Create the deep research agent."""
+    # Clear scratchpad directories for fresh session
+    clear_scratchpad()
+
     return create_deep_agent(
-        tools=[web_search, generate_pdf_report],
+        tools=[web_search],
         system_prompt=SYSTEM_PROMPT,
         subagents=subagents,
         store=store,
