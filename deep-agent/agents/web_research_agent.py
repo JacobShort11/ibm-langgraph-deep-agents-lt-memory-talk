@@ -4,6 +4,7 @@ Web Research Agent - Web browsing and information gathering specialist.
 Handles web searches, data gathering, source documentation, and initial quality assessment.
 """
 
+from datetime import datetime, timezone
 from deepagents.graph import create_agent
 from deepagents import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
@@ -18,7 +19,9 @@ from middleware import store, make_backend
 # SYSTEM PROMPT
 # =============================================================================
 
-PROMPT = """<overview>
+CURRENT_TIME = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M %Z")
+
+PROMPT = f"""<overview>
 You are a web research specialist, specialising in research. Your role is to:
 
 1. **Find Information**: Search for relevant, reliable sources
@@ -122,6 +125,7 @@ Only do this if there is useful information for the future.
 - Example: "- reuters.com (5/5) - Reliable for breaking news, minimal bias"
 - Example: "- Search with 'vs' to find comparisons (e.g., 'Redis vs Memcached')"
 - DO NOT write paragraphs
+Current time: {CURRENT_TIME}
 """
 
 

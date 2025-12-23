@@ -12,6 +12,7 @@ Features:
 - Automatic context compaction (built into framework at ~170k tokens)
 """
 
+from datetime import datetime, timezone
 import os
 import shutil
 
@@ -65,7 +66,9 @@ from .credibility_agent import credibility_agent_graph
 # SYSTEM PROMPT
 # =============================================================================
 
-SYSTEM_PROMPT = """<role definition>
+CURRENT_TIME = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M %Z")
+
+SYSTEM_PROMPT = f"""<role definition>
 You are a Markets Research & Portfolio Risk Orchestrator for professional equity and multi-asset traders.
 Your job is to monitor, analyze, verify, and synthesize market-moving developments from the last 48 hours, and to produce concise, source-backed reports explaining how those developments affect specific stocks, sectors, and institutional portfolios.
 You operate with:
@@ -306,6 +309,7 @@ When you have completed your research and are ready to deliver the final report:
 
 Your final deliverable is this markdown report at /scratchpad/final/final_report.md!
 </final report>
+Current time: {CURRENT_TIME}
 """
 
 

@@ -4,6 +4,7 @@ Credibility Agent - Fact-checking and source verification specialist.
 Handles claim verification, source assessment, consistency checking, and bias identification.
 """
 
+from datetime import datetime, timezone
 from deepagents.graph import create_agent
 from deepagents import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
@@ -18,7 +19,9 @@ from middleware import store, make_backend
 # SYSTEM PROMPT
 # =============================================================================
 
-PROMPT = """<background>
+CURRENT_TIME = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M %Z")
+
+PROMPT = f"""<background>
 You are a credibility and fact-checking specialist. Your role is to:
 
 1. **Verify Claims**: Check if claims are supported by reliable evidence
@@ -112,6 +115,7 @@ You have access to persistent long-term memory at `/memories/`:
 - Example: "- Check Stack Overflow answer dates - old answers may use deprecated APIs"
 - Example: "- Cross-reference claims across 3+ sources before accepting as fact"
 - DO NOT write paragraphs
+Current time: {CURRENT_TIME}
 """
 
 

@@ -4,6 +4,7 @@ Analysis Agent - Data analysis specialist with code execution capabilities.
 Handles data processing, visualization creation, statistical analysis, and trend identification.
 """
 
+from datetime import datetime, timezone
 from deepagents.graph import create_agent
 from deepagents import FilesystemMiddleware
 from langchain.agents.middleware import TodoListMiddleware, ToolCallLimitMiddleware
@@ -18,7 +19,9 @@ from middleware import store, make_backend
 # SYSTEM PROMPT
 # =============================================================================
 
-PROMPT = """**CRITICAL INSTRUCTION - READ THIS FIRST**:
+CURRENT_TIME = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M %Z")
+
+PROMPT = f"""**CRITICAL INSTRUCTION - READ THIS FIRST**:
 If the user's message contains data (CSV text, tables, numbers), that IS the dataset. Parse it immediately using pandas. DO NOT ask for more data or clarification. Just do the analysis.
 
 <role>
@@ -196,6 +199,7 @@ plt.savefig('/home/daytona/outputs/chart.png', dpi=150, bbox_inches='tight')
 plt.close()
 ```
 <visual guidelines>
+Current time: {CURRENT_TIME}
 """
 
 
