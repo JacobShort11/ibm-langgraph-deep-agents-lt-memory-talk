@@ -37,7 +37,6 @@ def execute_python_code(code: str) -> str:
 
     try:
         # Upload any data files from local scratchpad/data to sandbox
-        uploaded_files = []
         if os.path.exists(DATA_DIR):
             sandbox.process.code_run("import os; os.makedirs('/home/daytona/data', exist_ok=True)")
             for filename in os.listdir(DATA_DIR):
@@ -46,7 +45,6 @@ def execute_python_code(code: str) -> str:
                     remote_path = f"/home/daytona/data/{filename}"
                     try:
                         sandbox.fs.upload_file(local_path, remote_path)
-                        uploaded_files.append(filename)
                     except Exception as e:
                         pass  # Silently skip upload errors
 
@@ -65,10 +63,6 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
         response = sandbox.process.code_run(setup + "\n" + code)
 
         output_parts = []
-
-        # Report uploaded data files
-        if uploaded_files:
-            output_parts.append(f"📂 Data files available at /home/daytona/data/: {', '.join(uploaded_files)}")
 
         # If the code does print("hello") → that goes into response.result
         if response.result:
@@ -99,10 +93,7 @@ os.makedirs('/home/daytona/outputs', exist_ok=True)
                         output_parts.append(f"Warning: Could not download {file_name}: {e}")
 
                 if downloaded:
-                    output_parts.append(f"\n📥 Plots saved locally:")
-                    for path in downloaded:
-                        output_parts.append(f"   • {path}")
-                    output_parts.append(f"\n✅ Main agent can now access these files using Read tool")
+                    output_parts.append(f"Plots saved to scratchpad/plots/: {', '.join(file_names)}")
         except Exception:
             pass
 

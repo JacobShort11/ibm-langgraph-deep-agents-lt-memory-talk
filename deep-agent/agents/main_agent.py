@@ -117,9 +117,16 @@ Use this to:
 Only use this for information which seem implausible, use of this agent should be limited.
 <tools>
 
+<delegation scope>
+When delegating to sub-agents, always tell them how comprehensive to be.
+- Default to light, tightly scoped requests—they can work hard, so keep them bounded.
+- For analysis-agent: specify the exact calculations/plots needed and cap breadth (e.g., "one comparison plot + brief stats only").
+- For web-research-agent and credibility-agent: state the number of sources/checks you want and keep it minimal unless explicitly required.
+</delegation scope>
+
 <file system>
 You and your sub-agents have access to /scratchpad and therefore the following directories:
-/scratchpad/data/ contains any datasets found and saved for this session
+/scratchpad/data/ contains structured datasets for this session (CSV/TSV/Excel/JSON). Do NOT put raw text here—save text docs or transcripts to /scratchpad/notes/ instead.
 /scratchpad/images/ contains any images found and saved for this session
 /scratchpad/notes/ contains any longer notes written down by either yourself or by your sub-agents. This is used for persisting important information or saving detailed info.
 /scratchpad/plots/ contains any plots created by the analysis sub agent
@@ -130,15 +137,16 @@ You have access to persistent long-term memory at `/memories/`:
 - `/memories/website_quality.txt` - Ignore
 - `/memories/research_lessons.txt` - What approaches worked well or poorly
 - `/memories/source_notes.txt` - Ignore
+- `/memories/coding.txt` - Code mistakes/lessons (analysis-agent only, ignore here)
 
-**IMPORTANT: ONLY use these 3 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 3 files.**
+**IMPORTANT: ONLY use these 4 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 4 files.**
 
 **Before starting research:**
-1. Use `read_file()` to check relevant memory files for past learnings
+1. Use `read_file()` to check relevant memory files for past learnings (skip `/memories/coding.txt` - the analysis agent handles coding lessons)
 2. Apply those lessons (e.g., known reliable sources, effective search strategies)
 
 **After completing your research:**
-1. Update memory files with new 1-2 learnings about sources, search tactics, etc.
+1. Update memory files with new 1-2 learnings about sources, search tactics, etc. (not `/memories/coding.txt`; the analysis agent updates that file)
 Only do this if there is useful information for the future.
 
 **Memory Writing Format:**
@@ -265,6 +273,21 @@ When you have completed your research and are ready to deliver the final report:
    ## Charts and Analysis
    ![Chart Title](../plots/chart_name.png)
    [Include all relevant plots created by analysis-agent]
+
+   ## Recommendations
+   **Actionable recommendations based on the research findings:**
+
+   For each recommendation:
+   1. State the recommendation clearly
+   2. Provide justification citing specific findings from the report
+   3. Reference the supporting evidence (data points, sources, analysis)
+   4. Note any caveats or conditions
+
+   Example format:
+   - **Recommendation**: [Clear, specific recommendation]
+     - *Justification*: [Why this recommendation follows from the findings]
+     - *Supporting Evidence*: [Specific data points, citations, or analysis results]
+     - *Caveats*: [Any limitations or conditions to consider]
 
    ## Sources & Citations
    **Complete numbered list of ALL sources used in this report:**

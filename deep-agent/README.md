@@ -105,6 +105,7 @@ Long-Term Memory files:
 - `/memories/website_quality.txt` - Source ratings
 - `/memories/research_lessons.txt` - What works
 - `/memories/source_notes.txt` - Source notes
+- `/memories/coding.txt` - Code mistakes and lessons (analysis agent only)
 In this project, memories are being searched for by `glob`, `grep` instead of retrieved semantically although we could easily create a `semantic_search` tool / middleware if needed.
 
 ### Context Compaction

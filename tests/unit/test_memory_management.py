@@ -311,16 +311,18 @@ class TestMemoryFileStructure:
         # - /memories/website_quality.txt
         # - /memories/research_lessons.txt
         # - /memories/source_notes.txt
+        # - /memories/coding.txt
 
         # This is a documentation test to ensure we remember these files exist
         expected_files = [
             "/memories/website_quality.txt",
             "/memories/research_lessons.txt",
             "/memories/source_notes.txt",
+            "/memories/coding.txt",
         ]
 
         # Just verify the list structure
-        assert len(expected_files) == 3
+        assert len(expected_files) == 4
         assert all(f.startswith("/memories/") for f in expected_files)
 
 
