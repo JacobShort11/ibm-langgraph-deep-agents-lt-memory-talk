@@ -21,10 +21,9 @@ from daytona_sdk import Daytona
 
 daytona = Daytona()
 
-# Get absolute paths to deep-agent/scratchpad directories
+# Get absolute paths
 _TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 _DEEP_AGENT_DIR = os.path.dirname(_TOOLS_DIR)
-DATA_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad", "data")
 
 
 def _cloudinary_config() -> Tuple[Dict[str, str], List[str]]:
@@ -128,7 +127,6 @@ def execute_python_code(code: str) -> str:
     Available libraries: pandas, numpy, matplotlib, seaborn, scipy, sklearn
 
     File paths:
-    - Input data: Files from scratchpad/data/ are uploaded to /home/daytona/data/
     - Output plots: Save to /home/daytona/outputs/ → downloaded then uploaded from host to Cloudinary (when configured)
 
     Args:
@@ -141,18 +139,6 @@ def execute_python_code(code: str) -> str:
     sandbox = daytona.create()
 
     try:
-        # Upload any data files from local scratchpad/data to sandbox
-        if os.path.exists(DATA_DIR):
-            sandbox.process.code_run("import os; os.makedirs('/home/daytona/data', exist_ok=True)")
-            for filename in os.listdir(DATA_DIR):
-                local_path = os.path.join(DATA_DIR, filename)
-                if os.path.isfile(local_path):
-                    remote_path = f"/home/daytona/data/{filename}"
-                    try:
-                        sandbox.fs.upload_file(local_path, remote_path)
-                    except Exception as e:
-                        pass  # Silently skip upload errors
-
         # Setup code with common imports
         setup = """
 import pandas as pd

@@ -2,7 +2,6 @@
 
 import importlib
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,76 +9,52 @@ import pytest
 
 def _reload_with_patches():
     """Reload main_agent with heavy dependencies stubbed out."""
-    # Reset modules so patches apply during import
-    for name in [
-        "agents.main_agent",
-        "agents.analysis_agent",
-        "agents.web_research_agent",
-        "agents.credibility_agent",
-        "middleware.memory_backend",
-    ]:
-        sys.modules.pop(name, None)
+    # Clear cached modules to force fresh import
+    for name in list(sys.modules.keys()):
+        if name.startswith(("agents.", "middleware.")):
+            sys.modules.pop(name, None)
+
+    # Create mock for sub-agent graphs
+    mock_subagent_graph = MagicMock(name="subgraph")
+
+    # Create mock for the main deep agent
+    mock_deep_agent = MagicMock()
+    mock_configured = MagicMock(name="configured-agent")
+    mock_deep_agent.with_config.return_value = mock_configured
 
     patchers = [
-        patch("deepagents.graph.create_agent"),
-        patch("deepagents.create_deep_agent"),
+        patch("deepagents.graph.create_agent", return_value=mock_subagent_graph),
+        patch("deepagents.create_deep_agent", return_value=mock_deep_agent),
+        patch("deepagents.FilesystemMiddleware"),
+        patch("langchain.agents.middleware.ToolCallLimitMiddleware"),
         patch("langchain_openai.ChatOpenAI"),
     ]
 
-    started = [p.start() for p in patchers]
+    for p in patchers:
+        p.start()
 
-    started[0].return_value = MagicMock(name="subgraph")  # create_agent
-    deep_agent = MagicMock()
-    deep_agent.with_config.return_value = "configured-agent"
-    started[1].return_value = deep_agent  # create_deep_agent
-
+    # Now import the modules
     import middleware.memory_backend as memory_backend
     importlib.reload(memory_backend)
 
     import agents.main_agent as main_agent
     importlib.reload(main_agent)
 
-    return main_agent, deep_agent, patchers
+    return main_agent, mock_deep_agent, mock_configured, patchers
 
 
 @pytest.mark.integration
-def test_create_research_agent_uses_recursion_limit():
-    main_agent, deep_agent, patchers = _reload_with_patches()
+def test_main_agent_graph_configured_with_recursion_limit():
+    main_agent, mock_deep_agent, mock_configured, patchers = _reload_with_patches()
 
     try:
-        result = main_agent.create_research_agent()
-
-        assert deep_agent.with_config.call_count >= 1
-        for call in deep_agent.with_config.call_args_list:
-            assert call.args[0] == {"recursion_limit": 1000}
-        assert result == "configured-agent"
+        # Verify with_config was called with recursion_limit (may be called multiple times due to module reloading)
+        assert mock_deep_agent.with_config.call_count >= 1
+        mock_deep_agent.with_config.assert_called_with({"recursion_limit": 1000})
+        # The main_agent_graph should be the configured agent
+        assert main_agent.main_agent_graph is mock_configured
+        # Verify we have 3 subagents defined
         assert len(main_agent.subagents) == 3
-    finally:
-        for patcher in patchers:
-            patcher.stop()
-
-
-@pytest.mark.integration
-def test_clear_scratchpad_resets_directories(tmp_path, monkeypatch):
-    # Reload with patches to avoid side effects
-    main_agent, _, patchers = _reload_with_patches()
-
-    try:
-        monkeypatch.setattr(main_agent, "SCRATCHPAD_DIR", tmp_path)
-        monkeypatch.setattr(main_agent, "SCRATCHPAD_SUBDIRS", ["data", "images"])
-
-        # Seed directories with files
-        for subdir in main_agent.SCRATCHPAD_SUBDIRS:
-            path = tmp_path / subdir
-            path.mkdir(parents=True, exist_ok=True)
-            (path / "temp.txt").write_text("junk")
-
-        main_agent.clear_scratchpad()
-
-        for subdir in main_agent.SCRATCHPAD_SUBDIRS:
-            path = tmp_path / subdir
-            assert path.exists()
-            assert not any(path.iterdir())
     finally:
         for patcher in patchers:
             patcher.stop()

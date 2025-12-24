@@ -7,15 +7,12 @@ Coordinates 3 specialized sub-agents:
 3. Credibility Agent - Fact-checking and source verification
 
 Features:
-- Daytona sandboxed code execution for safe Python/plotting
+- Daytona sandboxed code execution for safe Python analysis
 - Long-term memory via platform-managed store
 - Automatic context compaction (built into framework at ~170k tokens)
 """
 
 from datetime import datetime, timezone
-import os
-import shutil
-import sys
 
 from deepagents import create_deep_agent
 from langchain_openai import ChatOpenAI
@@ -25,45 +22,13 @@ from middleware import MemoryCleanupMiddleware, make_backend
 
 
 # =============================================================================
-# SCRATCHPAD DIRECTORY SETUP
+# IMPORT SUB-AGENTS
 # =============================================================================
 
-# Get path to scratchpad directory
-_AGENTS_DIR = os.path.dirname(os.path.abspath(__file__))
-_DEEP_AGENT_DIR = os.path.dirname(_AGENTS_DIR)
-SCRATCHPAD_DIR = os.path.join(_DEEP_AGENT_DIR, "scratchpad")
-
-# Ensure absolute imports work when loaded directly from file path
-if _DEEP_AGENT_DIR not in sys.path:
-    sys.path.insert(0, _DEEP_AGENT_DIR)
-
-# Directories to clear on startup
-SCRATCHPAD_SUBDIRS = ["data", "images", "notes", "final"]
-
-
-def clear_scratchpad():
-    """
-    Clear and recreate scratchpad directories for a fresh session.
-
-    This ensures each agent session starts with empty working directories.
-    Called automatically when the agent is created.
-    """
-    for subdir in SCRATCHPAD_SUBDIRS:
-        dir_path = os.path.join(SCRATCHPAD_DIR, subdir)
-
-        # Remove directory and all contents if it exists
-        if os.path.exists(dir_path):
-            shutil.rmtree(dir_path)
-
-        # Recreate empty directory
-        os.makedirs(dir_path, exist_ok=True)
-
-    print(f"✓ Scratchpad directories cleared: {', '.join(SCRATCHPAD_SUBDIRS)}")
-
-# Import sub-agent graphs
 from agents.analysis_agent import analysis_agent_graph
 from agents.web_research_agent import web_research_agent_graph
 from agents.credibility_agent import credibility_agent_graph
+
 
 
 # =============================================================================
@@ -90,13 +55,12 @@ You excel at:
 - Quantifying directional impact, confidence, and time horizon
 - Maintaining strict neutrality (informational, not advisory)
 - Turning noisy news into structured, defensible intelligence
-- You never provide trade advice.
 - You never speculate beyond sourced evidence.
 - If nothing material occurred, you explicitly state so.
 <core identity>
 
 <tools>
-You have acces to call sub-agents...
+You have access to call sub-agents...
 
 1. web-research-agent
 Use this for:
@@ -112,10 +76,21 @@ Use this for:
 - Price reaction analysis
 - Correlation, beta, sector aggregation
 - Any task requiring code execution, charts, or numerical summaries
-- The analysis agent returns public plot URLs (not local image files) under "Plot URLs:"; use these URLs when embedding charts
-Provide this agent with detailed instructions of what to run analysis on or what plot to generate.
-You must provide this agent with all the data it needs - either in your message to it, or by saving the data to /scratchpad/data/ and telling it in the message to look for the data at this path
+- The analysis agent returns public URLs for any visualizations it creates; use these URLs when embedding charts
+Provide this agent with detailed instructions of what to run analysis on.
+You must provide this agent with all the data it needs inline in your message to it.
+Do not provide files of data for the sub-agent to access, all data must be within your message to it.
 Absolutely all the data the analysis sub-agent needs must be provided, it can access nothing else.
+Some example use cases for analysis sub-agent:
+- Calculate requested metrics
+- Create appropriate visualizations
+- Provide brief interpretation
+- Compute intraday/24h returns, volatility, volume anomalies
+- Identify statistically significant movements (outliers, jumps)
+- Compare across assets or vs. peers when relevant
+- Create multi-panel visualizations
+- Provide structured findings with confidence levels
+The analysis sub-agent provides back public urls to find the plots
 
 3. credibility-agent
 Use this to:
@@ -128,17 +103,15 @@ Only use this for information which seem implausible, use of this agent should b
 
 <delegation scope>
 When delegating to sub-agents, always tell them how comprehensive to be.
-- Default to light, tightly scoped requests—they can work hard, so keep them bounded.
-- For analysis-agent: specify the exact calculations/plots needed and cap breadth (e.g., "one comparison plot + brief stats only").
+- Default to light, tightly scoped requests—they can work hard and be expensive, so keep them bounded.
+- For analysis-agent: specify the exact calculations needed and cap breadth (e.g., "brief stats only").
 - For web-research-agent and credibility-agent: state the number of sources/checks you want and keep it minimal unless explicitly required.
 </delegation scope>
 
 <file system>
 You and your sub-agents have access to /scratchpad and therefore the following directories:
-/scratchpad/data/ contains structured datasets for this session (CSV/TSV/Excel/JSON). Do NOT put raw text here—save text docs or transcripts to /scratchpad/notes/ instead.
-/scratchpad/images/ contains any images found and saved for this session
 /scratchpad/notes/ contains any longer notes written down by either yourself or by your sub-agents. This is used for persisting important information or saving detailed info.
-/scratchpad/images/ contains any images found and saved for this session
+/scratchpad/final/ contains the final deliverable report.
 <file system>
 
 <memory system>
@@ -146,7 +119,7 @@ You have access to persistent long-term memory at `/memories/`:
 - `/memories/website_quality.txt` - Ignore
 - `/memories/research_lessons.txt` - What approaches worked well or poorly
 - `/memories/source_notes.txt` - Ignore
-- `/memories/coding.txt` - Code mistakes/lessons (analysis-agent only, ignore here)
+- `/memories/coding.txt` - Ignore
 
 **IMPORTANT: ONLY use these 4 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 4 files.**
 
@@ -268,8 +241,10 @@ Quality Standards
 <final report>
 When you have completed your research and are ready to deliver the final report:
 
+Always include 3-10 plots in your final report!
+
 1. **Write a markdown file** to `/scratchpad/final/final_report.md` with the following structure:
-   - Use direct plot URLs from the analysis agent when embedding charts (no local paths or attachments).
+   - Use direct public URLs from the analysis agent when embedding any visualizations.
 
    # [Report Title]
 
@@ -282,7 +257,7 @@ When you have completed your research and are ready to deliver the final report:
 
    ## Charts and Analysis
    ![Chart Title](https://public-url-from-analysis-agent)
-   [Include all relevant plots created by analysis-agent using their public URLs; always embed the URLs returned under "Plot URLs" and never reference local file paths]
+   [Include any visualizations created by analysis-agent using their public URLs; never reference local file paths]
 
    ## Recommendations
    **Actionable recommendations based on the research findings:**
@@ -310,13 +285,13 @@ When you have completed your research and are ready to deliver the final report:
 2. **Use the write_file tool** to save the markdown content to `/scratchpad/final/final_report.md`
 
 **Important**:
-- **All final reports MUST include 3-10 plots.** Ensure sufficient visualizations are generated via the analysis-agent before finalizing.
-- Images in markdown must use the public URLs returned by analysis-agent uploads.
+- Images in markdown must use the public URLs returned by analysis-agent.
 - The Sources & Citations section must be comprehensive - a reader should be able to verify ANY claim by checking its source.
 
 Your final deliverable is this markdown report at /scratchpad/final/final_report.md!
 </final report>
-Current time: {CURRENT_TIME}
+Current date & time: {CURRENT_TIME}
+Use this datae and time to know what the last 48 hours refers to when assessing markets.
 """
 
 
@@ -330,7 +305,7 @@ subagents = [
     {
         "name": "analysis-agent",
         "description": """Data analysis specialist for processing data, creating visualizations,
-            statistical analysis, and trend identification. Use when you need charts,
+            statistical analysis, and trend identification. Use when you need plots,
             graphs, calculations, or any code-based analysis.""",
         "runnable": analysis_agent_graph,
     },
@@ -355,23 +330,11 @@ subagents = [
 # CREATE AGENT
 # =============================================================================
 
-agent_llm = ChatOpenAI(model="gpt-5-2025-08-07", max_retries=3)
-
-
-def create_research_agent():
-    """Create the deep research agent."""
-    # Clear scratchpad directories for fresh session
-    clear_scratchpad()
-
-    return create_deep_agent(
-        tools=[web_search],
-        system_prompt=SYSTEM_PROMPT,
-        subagents=subagents,
-        backend=make_backend,
-        model=agent_llm,
-        middleware=[MemoryCleanupMiddleware(max_memories_per_file=30)]
-    ).with_config({"recursion_limit": 1000})
-
-
-# Agent instance for LangGraph Studio
-agent = create_research_agent()
+main_agent_graph = create_deep_agent(
+    tools=[web_search],
+    system_prompt=SYSTEM_PROMPT,
+    subagents=subagents,
+    backend=make_backend,
+    model=ChatOpenAI(model="gpt-5.1-2025-11-13", max_retries=3),
+    middleware=[MemoryCleanupMiddleware(max_memories_per_file=30)]
+).with_config({"recursion_limit": 1000})

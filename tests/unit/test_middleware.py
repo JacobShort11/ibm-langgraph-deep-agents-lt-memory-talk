@@ -9,7 +9,7 @@ def test_memory_cleanup_defaults():
     from middleware.memory_cleanup import MemoryCleanupMiddleware
 
     store = MagicMock()
-    middleware = MemoryCleanupMiddleware(store)
+    middleware = MemoryCleanupMiddleware(store_instance=store)
 
     assert middleware.max_memories == 30
     assert middleware.store is store

@@ -46,8 +46,8 @@ class TestExecutePythonCode:
             assert "import pandas as pd" in call_code
             assert "print('hello')" in call_code
 
-    def test_downloads_generated_files(self, tmp_path, monkeypatch):
-        from tools.code_execution import execute_python_code, PLOTS_DIR
+    def test_downloads_and_uploads_generated_files(self, tmp_path):
+        from tools.code_execution import execute_python_code
 
         sandbox = MagicMock()
         sandbox.process.code_run.return_value = MagicMock(result=None)
@@ -57,13 +57,31 @@ class TestExecutePythonCode:
         file_two.name = "table.csv"
         sandbox.fs.list_files.return_value = [file_one, file_two]
 
-        monkeypatch.setattr("tools.code_execution.PLOTS_DIR", tmp_path)
-
-        with patch("tools.code_execution.daytona") as mock_daytona:
+        with patch("tools.code_execution.daytona") as mock_daytona, \
+             patch("tools.code_execution.tempfile.mkdtemp", return_value=str(tmp_path)), \
+             patch("tools.code_execution._upload_cloudinary_host") as mock_upload, \
+             patch("tools.code_execution.shutil.rmtree"):
             mock_daytona.create.return_value = sandbox
+            mock_upload.return_value = (["https://cloudinary.com/chart.png"], [])
+
             result = execute_python_code("pass")
 
+        # Verify files were downloaded from sandbox
         sandbox.fs.download_file.assert_any_call("/home/daytona/outputs/chart.png", str(tmp_path / "chart.png"))
         sandbox.fs.download_file.assert_any_call("/home/daytona/outputs/table.csv", str(tmp_path / "table.csv"))
         assert "Generated files" in result
-        assert "Plots saved" in result
+        assert "Plot URLs" in result
+
+    def test_handles_no_output_files(self):
+        from tools.code_execution import execute_python_code
+
+        sandbox = MagicMock()
+        sandbox.process.code_run.return_value = MagicMock(result=None)
+        sandbox.fs.list_files.return_value = []
+
+        with patch("tools.code_execution.daytona") as mock_daytona:
+            mock_daytona.create.return_value = sandbox
+
+            result = execute_python_code("x = 1")
+
+        assert "No plot files found" in result

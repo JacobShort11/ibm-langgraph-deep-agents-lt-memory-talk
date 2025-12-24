@@ -67,6 +67,8 @@ Lower Credibility Sources:
 
 ## Output Format
 
+Be harsh, if something simple is wrong, i..e a stock price is higher than another currently but it is not say incorrect.
+
 Provide your assessment concisely as:
 
 ### Claim Verification
@@ -114,7 +116,10 @@ You have access to persistent long-term memory at `/memories/`:
 - Example: "- Check Stack Overflow answer dates - old answers may use deprecated APIs"
 - Example: "- Cross-reference claims across 3+ sources before accepting as fact"
 - DO NOT write paragraphs
-Current time: {CURRENT_TIME}
+
+
+Current date: {CURRENT_TIME}
+Use this date for assessing claims refercing times such as the most recent quarter.
 """
 
 
