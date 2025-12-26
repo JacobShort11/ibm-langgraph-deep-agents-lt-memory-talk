@@ -257,7 +257,7 @@ You have access to persistent long-term memory at /memories:
 
 IMPORTANT: ONLY use these 4 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 4 files.
 
-Read memories if needed. Optionally update 1-2 memories occasionally - only do this if there is useful information for the future.
+Read memories if needed. Optionally update (use edit file tool) 1-2 memories occasionally - only do this if there is useful information for the future.
 
 Memory Writing Format:
    - Use markdown format with ## headers for sections
