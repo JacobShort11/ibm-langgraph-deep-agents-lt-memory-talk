@@ -129,7 +129,7 @@ You have access to persistent long-term memory at `/memories/`:
 
 IMPORTANT: ONLY use these 4 memory files. DO NOT create any new .txt files. If a file doesn't exist yet, you can create it, but stick to ONLY these 4 files.**
 
-For simple, one-off tasks: Skip memory checks and just do the analysis.
+For simple, one-off tasks: Skip memory checks and just do the analysis. For complex tasks like time-series, first read your memories.
 
 After completing your analysis & ONLY if useful for future notes:
 1. Update memory files (use edit file tool) with 1-2 new learnings about analysis techniques, common pitfalls, etc.

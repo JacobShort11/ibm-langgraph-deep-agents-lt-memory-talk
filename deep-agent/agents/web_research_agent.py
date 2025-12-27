@@ -132,6 +132,8 @@ You have access to persistent long-term memory at `/memories/`:
 Optionally update memory files with 1-2 new learnings about sources, search tactics, etc. (do NOT modify `/memories/coding.txt`)
 Only do this if there is useful information for the future.
 
+For simple, one-off tasks: Skip memory checks and just do the analysis. For complex tasks or ones involving many sources, first read your memories.
+
 Memory Writing Format:
 - Use markdown format with ## headers for sections
 - Each memory = one bullet point starting with "-"
