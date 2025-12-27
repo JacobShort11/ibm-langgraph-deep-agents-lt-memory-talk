@@ -147,11 +147,16 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 import os
 os.makedirs('/home/daytona/outputs', exist_ok=True)
 """
-        # Run setup + user code
-        response = sandbox.process.code_run(setup + "\n" + code)
+        # Run setup first (ensures outputs dir exists even if user code has syntax errors)
+        sandbox.process.code_run(setup)
+
+        # Run user code
+        response = sandbox.process.code_run(code)
 
         output_parts = []
 
